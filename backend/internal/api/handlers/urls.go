@@ -8,19 +8,22 @@ import (
 
 	"web-crawler-dashboard/internal/api/middleware"
 	"web-crawler-dashboard/internal/models"
+	"web-crawler-dashboard/internal/services"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 type URLHandler struct {
-	db *gorm.DB
+	db         *gorm.DB
+	urlService *services.URLService
 }
 
 // NewURLHandler creates a new URL handler
-func NewURLHandler(db *gorm.DB) *URLHandler {
+func NewURLHandler(db *gorm.DB, urlService *services.URLService) *URLHandler {
 	return &URLHandler{
-		db: db,
+		db:         db,
+		urlService: urlService,
 	}
 }
 
@@ -71,28 +74,25 @@ func (h *URLHandler) CreateURL(c *gin.Context) {
 		return
 	}
 
-	// Check if URL already exists for this user
-	var existingURL models.URL
-	result := h.db.Where("user_id = ? AND url = ?", userID, req.URL).First(&existingURL)
-	if result.Error == nil {
-		c.JSON(http.StatusConflict, gin.H{
-			"error":   "url_exists",
-			"message": "URL already exists for this user",
-			"url_id":  existingURL.ID,
-		})
-		return
-	}
-
-	// Create new URL
-	newURL := models.URL{
-		UserID: userID,
-		URL:    req.URL,
-		Status: models.StatusQueued,
-	}
-
-	if err := h.db.Create(&newURL).Error; err != nil {
+	// Use service layer to create URL
+	newURL, err := h.urlService.CreateURL(userID, req.URL)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "url_exists",
+				"message": err.Error(),
+			})
+			return
+		}
+		if strings.Contains(err.Error(), "invalid URL") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid_url",
+				"message": err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
+			"error":   "service_error",
 			"message": "Failed to create URL",
 		})
 		return
@@ -136,35 +136,11 @@ func (h *URLHandler) GetURLs(c *gin.Context) {
 		limit = 10
 	}
 
-	// Build query
-	query := h.db.Where("user_id = ?", userID)
-
-	// Add search filter
-	if search != "" {
-		query = query.Where("url LIKE ? OR title LIKE ?", "%"+search+"%", "%"+search+"%")
-	}
-
-	// Add status filter
-	if status != "" {
-		query = query.Where("status = ?", status)
-	}
-
-	// Get total count
-	var total int64
-	if err := query.Model(&models.URL{}).Count(&total).Error; err != nil {
+	// Use service layer to get URLs
+	urls, total, err := h.urlService.GetURLs(userID, page, limit, search, status)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
-			"message": "Failed to count URLs",
-		})
-		return
-	}
-
-	// Get URLs with pagination
-	var urls []models.URL
-	offset := (page - 1) * limit
-	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&urls).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
+			"error":   "service_error",
 			"message": "Failed to retrieve URLs",
 		})
 		return
@@ -333,45 +309,39 @@ func (h *URLHandler) StartAnalysis(c *gin.Context) {
 		return
 	}
 
-	// Find URL and check ownership
-	var url models.URL
-	result := h.db.Where("id = ? AND user_id = ?", urlID, userID).First(&url)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
+	// Use service layer to start analysis
+	err = h.urlService.StartAnalysis(c.Request.Context(), userID, uint(urlID))
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "url_not_found",
-				"message": "URL not found",
+				"message": err.Error(),
+			})
+			return
+		}
+		if strings.Contains(err.Error(), "already running") {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "analysis_running",
+				"message": err.Error(),
 			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
-			"message": "Failed to retrieve URL",
+			"error":   "service_error",
+			"message": "Failed to start analysis",
 		})
 		return
 	}
 
-	// Check if analysis is already running
-	if url.Status == models.StatusRunning {
-		c.JSON(http.StatusConflict, gin.H{
-			"error":   "analysis_running",
-			"message": "Analysis is already running for this URL",
-		})
-		return
-	}
-
-	// Update status to running
-	url.Status = models.StatusRunning
-	if err := h.db.Save(&url).Error; err != nil {
+	// Get updated URL to return current status
+	url, err := h.urlService.GetURL(userID, uint(urlID))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
-			"message": "Failed to update URL status",
+			"error":   "service_error",
+			"message": "Analysis started but failed to retrieve updated status",
 		})
 		return
 	}
-
-	// TODO: In the next phase, we'll implement the actual crawler service
-	// For now, we'll just update the status
 
 	response := URLResponse{
 		ID:        url.ID,
@@ -407,44 +377,39 @@ func (h *URLHandler) StopAnalysis(c *gin.Context) {
 		return
 	}
 
-	// Find URL and check ownership
-	var url models.URL
-	result := h.db.Where("id = ? AND user_id = ?", urlID, userID).First(&url)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
+	// Use service layer to stop analysis
+	err = h.urlService.StopAnalysis(userID, uint(urlID))
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "url_not_found",
-				"message": "URL not found",
+				"message": err.Error(),
+			})
+			return
+		}
+		if strings.Contains(err.Error(), "not running") {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "analysis_not_running",
+				"message": err.Error(),
 			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
-			"message": "Failed to retrieve URL",
+			"error":   "service_error",
+			"message": "Failed to stop analysis",
 		})
 		return
 	}
 
-	// Check if analysis is running
-	if url.Status != models.StatusRunning {
-		c.JSON(http.StatusConflict, gin.H{
-			"error":   "analysis_not_running",
-			"message": "No analysis is currently running for this URL",
-		})
-		return
-	}
-
-	// Update status back to queued
-	url.Status = models.StatusQueued
-	if err := h.db.Save(&url).Error; err != nil {
+	// Get updated URL to return current status
+	url, err := h.urlService.GetURL(userID, uint(urlID))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
-			"message": "Failed to update URL status",
+			"error":   "service_error",
+			"message": "Analysis stopped but failed to retrieve updated status",
 		})
 		return
 	}
-
-	// TODO: In the next phase, we'll implement actual cancellation of crawler service
 
 	response := URLResponse{
 		ID:        url.ID,
@@ -480,37 +445,35 @@ func (h *URLHandler) GetAnalysisResult(c *gin.Context) {
 		return
 	}
 
-	// Find URL and check ownership
-	var url models.URL
-	result := h.db.Where("id = ? AND user_id = ?", urlID, userID).Preload("Analysis").Preload("Analysis.BrokenLinksDetails").First(&url)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
+	// Get URL details first
+	url, err := h.urlService.GetURL(userID, uint(urlID))
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "url_not_found",
-				"message": "URL not found",
+				"message": err.Error(),
 			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
+			"error":   "service_error",
 			"message": "Failed to retrieve URL",
 		})
 		return
 	}
 
-	// Find analysis result
-	var analysis models.AnalysisResult
-	result = h.db.Where("url_id = ?", urlID).Preload("BrokenLinksDetails").First(&analysis)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
+	// Get analysis result using service layer
+	analysis, err := h.urlService.GetAnalysisResult(userID, uint(urlID))
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "analysis_not_found",
-				"message": "No analysis results found for this URL",
+				"message": err.Error(),
 			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "database_error",
+			"error":   "service_error",
 			"message": "Failed to retrieve analysis results",
 		})
 		return

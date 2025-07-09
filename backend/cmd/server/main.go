@@ -16,6 +16,7 @@ import (
 	"web-crawler-dashboard/internal/api/handlers"
 	"web-crawler-dashboard/internal/api/middleware"
 	"web-crawler-dashboard/internal/database"
+	"web-crawler-dashboard/internal/services"
 )
 
 func main() {
@@ -102,9 +103,12 @@ func setupRoutes(router *gin.Engine) {
 		log.Fatalf("Failed to initialize auth service: %v", err)
 	}
 
+	// Initialize services
+	urlService := services.NewURLService(database.GetDB())
+
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(database.GetDB(), authService)
-	urlHandler := handlers.NewURLHandler(database.GetDB())
+	urlHandler := handlers.NewURLHandler(database.GetDB(), urlService)
 
 	// API group
 	api := router.Group("/api")
@@ -135,6 +139,8 @@ func setupRoutes(router *gin.Engine) {
 		urlRoutes.POST("/:id/stop", urlHandler.StopAnalysis)
 		urlRoutes.GET("/:id/result", urlHandler.GetAnalysisResult)
 	}
+
+	log.Println("Routes initialized successfully with crawler integration")
 }
 
 func healthCheck(c *gin.Context) {

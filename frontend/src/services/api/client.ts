@@ -55,6 +55,7 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+export { apiClient };
 
 // Helper function to handle API errors
 export const handleApiError = (error: AxiosError) => {

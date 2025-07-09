@@ -46,6 +46,7 @@ type AuthResponse struct {
 // UserResponse represents user data in API responses (without sensitive info)
 type UserResponse struct {
 	ID        uint   `json:"id"`
+	Username  string `json:"username"`
 	Email     string `json:"email"`
 	CreatedAt string `json:"created_at"`
 }
@@ -93,8 +94,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// Generate username from email (part before @)
+	username := strings.Split(req.Email, "@")[0]
+	
 	// Create new user
 	user := models.User{
+		Username: username,
 		Email:    req.Email,
 		Password: hashedPassword,
 	}
@@ -121,6 +126,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	response := AuthResponse{
 		User: UserResponse{
 			ID:        user.ID,
+			Username:  user.Username,
 			Email:     user.Email,
 			CreatedAt: user.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		},
@@ -190,6 +196,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	response := AuthResponse{
 		User: UserResponse{
 			ID:        user.ID,
+			Username:  user.Username,
 			Email:     user.Email,
 			CreatedAt: user.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		},

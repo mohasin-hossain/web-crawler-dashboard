@@ -14,6 +14,7 @@ import (
 
 	"web-crawler-dashboard/internal/auth"
 	"web-crawler-dashboard/internal/api/handlers"
+	"web-crawler-dashboard/internal/api/middleware"
 	"web-crawler-dashboard/internal/database"
 )
 
@@ -103,6 +104,7 @@ func setupRoutes(router *gin.Engine) {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(database.GetDB(), authService)
+	urlHandler := handlers.NewURLHandler(database.GetDB())
 
 	// API group
 	api := router.Group("/api")
@@ -116,6 +118,22 @@ func setupRoutes(router *gin.Engine) {
 		authRoutes.POST("/register", authHandler.Register)
 		authRoutes.POST("/login", authHandler.Login)
 		authRoutes.POST("/refresh", authHandler.RefreshToken)
+	}
+
+	// Protected URL management routes
+	urlRoutes := api.Group("/urls")
+	urlRoutes.Use(middleware.AuthMiddleware(authService))
+	{
+		// CRUD operations
+		urlRoutes.POST("", urlHandler.CreateURL)
+		urlRoutes.GET("", urlHandler.GetURLs)
+		urlRoutes.GET("/:id", urlHandler.GetURL)
+		urlRoutes.DELETE("/:id", urlHandler.DeleteURL)
+		
+		// Analysis control endpoints
+		urlRoutes.POST("/:id/analyze", urlHandler.StartAnalysis)
+		urlRoutes.POST("/:id/stop", urlHandler.StopAnalysis)
+		urlRoutes.GET("/:id/result", urlHandler.GetAnalysisResult)
 	}
 }
 

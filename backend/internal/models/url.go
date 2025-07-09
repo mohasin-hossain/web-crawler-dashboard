@@ -26,7 +26,8 @@ type URL struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relationships
-	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	User     User            `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Analysis *AnalysisResult `gorm:"foreignKey:URLID" json:"analysis,omitempty"`
 }
 
 // TableName returns the table name for the URL model

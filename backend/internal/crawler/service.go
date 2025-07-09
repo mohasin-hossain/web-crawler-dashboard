@@ -253,10 +253,21 @@ func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlR
 	result.InternalLinks = len(parseResult.InternalLinks)
 	result.ExternalLinks = len(parseResult.ExternalLinks)
 
-	// Check broken links (simplified for now)
-	// In a full implementation, we would check each link
-	result.BrokenLinks = 0
-	result.BrokenLinksDetails = []BrokenLinkInfo{}
+	// Perform advanced link analysis with broken link detection
+	allLinks := append(parseResult.InternalLinks, parseResult.ExternalLinks...)
+	
+	// Deduplicate links before analysis
+	allLinks = DeduplicateLinks(allLinks)
+	
+	// Create link analyzer and check for broken links
+	if len(allLinks) > 0 && ctx.Err() == nil {
+		linkAnalyzer := NewLinkAnalyzer(c.config)
+		result.BrokenLinksDetails = linkAnalyzer.AnalyzeLinks(ctx, allLinks)
+		result.BrokenLinks = len(result.BrokenLinksDetails)
+	} else {
+		result.BrokenLinks = 0
+		result.BrokenLinksDetails = []BrokenLinkInfo{}
+	}
 
 	return result
 }

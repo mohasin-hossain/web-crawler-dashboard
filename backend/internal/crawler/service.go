@@ -150,10 +150,9 @@ func (c *CrawlerService) CrawlAsync(ctx context.Context, urlID uint, targetURL s
 
 		result := c.crawlURL(jobCtx, parsedURL.String())
 		
-		// Call the result callback if context wasn't cancelled
-		if jobCtx.Err() == nil {
-			resultCallback(result)
-		}
+		// Always call the callback, even if there was an error or cancellation
+		// The callback needs to update the URL status regardless of success/failure
+		resultCallback(result)
 	}()
 
 	return nil
@@ -232,7 +231,7 @@ func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlR
 		return result
 	}
 
-	// Parse HTML content (this will be implemented in the next step)
+	// Parse HTML content
 	parseResult, err := ParseHTML(resp.Body, targetURL)
 	if err != nil {
 		result.Error = fmt.Sprintf("Failed to parse HTML: %v", err)

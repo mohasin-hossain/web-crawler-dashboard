@@ -10,19 +10,24 @@ interface AuthActions {
   clearError: () => void;
   checkAuth: () => void;
   setLoading: (loading: boolean) => void;
+  refreshToken: () => Promise<void>;
 }
 
-type AuthStore = AuthState & AuthActions;
+type AuthStore = AuthState &
+  AuthActions & {
+    isInitialized: boolean;
+  };
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       user: null,
       token: null,
       isAuthenticated: false,
-      isLoading: false,
+      isLoading: true, // Start with loading true
       error: null,
+      isInitialized: false,
 
       // Actions
       login: async (data: LoginRequest) => {
@@ -31,6 +36,7 @@ export const useAuthStore = create<AuthStore>()(
 
           const response = await authApi.login(data);
 
+          // Update state with new auth data
           set({
             user: response.user,
             token: response.token,
@@ -58,6 +64,7 @@ export const useAuthStore = create<AuthStore>()(
 
           const response = await authApi.register(data);
 
+          // Update state with new auth data
           set({
             user: response.user,
             token: response.token,
@@ -82,7 +89,10 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
+        // Clear API storage first
         authApi.logout();
+
+        // Then update state
         set({
           user: null,
           token: null,
@@ -97,31 +107,65 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       checkAuth: () => {
-        const token = tokenStorage.get();
-        const user = userStorage.get();
+        try {
+          set({ isLoading: true });
 
-        if (token && user) {
-          // TODO: Optionally validate token with backend here
-          set({
-            user,
-            token,
-            isAuthenticated: true,
-            error: null,
-          });
-        } else {
-          // Clear invalid auth state
-          authApi.clearAuth();
+          const token = tokenStorage.get();
+          const user = userStorage.get();
+
+          if (token && user) {
+            // TODO: Optionally validate token with backend here
+            set({
+              user,
+              token,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+              isInitialized: true,
+            });
+          } else {
+            // Clear invalid auth state
+            authApi.clearAuth();
+            set({
+              user: null,
+              token: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: null,
+              isInitialized: true,
+            });
+          }
+        } catch (error) {
+          console.error("Error checking auth:", error);
           set({
             user: null,
             token: null,
             isAuthenticated: false,
-            error: null,
+            isLoading: false,
+            error: "Failed to check authentication",
+            isInitialized: true,
           });
         }
       },
 
       setLoading: (loading: boolean) => {
         set({ isLoading: loading });
+      },
+
+      refreshToken: async () => {
+        try {
+          const currentToken = get().token;
+          if (!currentToken) {
+            throw new Error("No token to refresh");
+          }
+
+          const newToken = await authApi.refreshToken();
+          set({ token: newToken });
+        } catch (error) {
+          // If refresh fails, logout the user
+          get().logout();
+          throw error;
+        }
       },
     }),
     {
@@ -135,7 +179,7 @@ export const useAuthStore = create<AuthStore>()(
       // Restore state and sync with localStorage
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Check if stored auth is still valid
+          // Check if stored auth is still valid after rehydration
           state.checkAuth();
         }
       },
@@ -145,11 +189,13 @@ export const useAuthStore = create<AuthStore>()(
 
 // Helper hooks for easier usage
 export const useAuth = () => {
-  const { user, isAuthenticated, isLoading, error } = useAuthStore();
-  return { user, isAuthenticated, isLoading, error };
+  const { user, isAuthenticated, isLoading, error, isInitialized } =
+    useAuthStore();
+  return { user, isAuthenticated, isLoading, error, isInitialized };
 };
 
 export const useAuthActions = () => {
-  const { login, register, logout, clearError, checkAuth } = useAuthStore();
-  return { login, register, logout, clearError, checkAuth };
+  const { login, register, logout, clearError, checkAuth, refreshToken } =
+    useAuthStore();
+  return { login, register, logout, clearError, checkAuth, refreshToken };
 };

@@ -175,18 +175,6 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
         </form>
       </Form>
 
-      <div className="text-center text-sm text-gray-500">
-        Already have an account?{" "}
-        <button
-          type="button"
-          className="font-medium text-blue-600 hover:text-blue-500 underline"
-          onClick={() => {
-            // This will be handled by parent component to switch forms
-          }}
-        >
-          Sign in
-        </button>
-      </div>
     </div>
   );
 }

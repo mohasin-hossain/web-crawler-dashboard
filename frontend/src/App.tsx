@@ -1,11 +1,15 @@
 import { useEffect } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
+import { LoadingSpinner } from "./components/common/LoadingSpinner";
+import { Layout } from "./components/layout/Layout";
 import { Toaster } from "./components/ui/sonner";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { useAuth, useAuthActions } from "./stores/authStore";
 
 function App() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading, isInitialized } = useAuth();
   const { checkAuth } = useAuthActions();
 
   useEffect(() => {
@@ -13,23 +17,63 @@ function App() {
     checkAuth();
   }, [checkAuth]);
 
-  // Simple routing based on authentication state
-  const renderPage = () => {
-    const path = window.location.pathname;
-
-    if (path === "/dashboard") {
-      return <DashboardPage />;
-    }
-
-    // Default route - login/register page
-    return <LoginPage />;
-  };
+  // Show loading spinner while checking authentication
+  if (isLoading || !isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner size="lg" text="Loading application..." />
+      </div>
+    );
+  }
 
   return (
-    <>
-      {renderPage()}
-      <Toaster position="bottom-right" richColors closeButton />
-    </>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <LoginPage />
+              )
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              isAuthenticated ? (
+                <Layout>
+                  <DashboardPage />
+                </Layout>
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <Navigate
+                to={isAuthenticated ? "/dashboard" : "/login"}
+                replace
+              />
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <Navigate
+                to={isAuthenticated ? "/dashboard" : "/login"}
+                replace
+              />
+            }
+          />
+        </Routes>
+        <Toaster position="bottom-right" richColors closeButton />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

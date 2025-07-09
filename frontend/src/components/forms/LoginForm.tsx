@@ -131,19 +131,6 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
           </Button>
         </form>
       </Form>
-
-      <div className="text-center text-sm text-gray-500">
-        Don't have an account?{" "}
-        <button
-          type="button"
-          className="font-medium text-blue-600 hover:text-blue-500 underline"
-          onClick={() => {
-            // This will be handled by parent component to switch forms
-          }}
-        >
-          Sign up
-        </button>
-      </div>
     </div>
   );
 }

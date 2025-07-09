@@ -151,7 +151,8 @@ func (s *URLService) StartAnalysis(ctx context.Context, userID, urlID uint) erro
 	}
 
 	// Start crawling asynchronously
-	err = s.crawlerService.CrawlAsync(ctx, urlID, url.URL, func(result *crawler.CrawlResult) {
+	// Use background context instead of request context since this is async operation
+	err = s.crawlerService.CrawlAsync(context.Background(), urlID, url.URL, func(result *crawler.CrawlResult) {
 		s.handleCrawlResult(urlID, result)
 	})
 

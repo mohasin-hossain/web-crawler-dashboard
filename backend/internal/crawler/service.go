@@ -145,7 +145,7 @@ func (c *CrawlerService) CrawlAsync(ctx context.Context, urlID uint, targetURL s
 		defer func() {
 			// Clean up job tracking
 			delete(c.jobs, urlID)
-			cancel()
+			// Don't call cancel() here - that would cancel our own context!
 		}()
 
 		result := c.crawlURL(jobCtx, parsedURL.String())
@@ -180,6 +180,12 @@ func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlR
 		URL:           targetURL,
 		HeadingCounts: make(map[string]int),
 		MetaTags:      make(map[string]string),
+	}
+
+	// Check context first
+	if ctx.Err() != nil {
+		result.Error = "Crawl was cancelled"
+		return result
 	}
 
 	// Create request with context

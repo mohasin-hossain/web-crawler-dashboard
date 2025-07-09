@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/cors"
+	"github.com/joho/godotenv"
 
 	"web-crawler-dashboard/internal/auth"
 	"web-crawler-dashboard/internal/api/handlers"
@@ -20,6 +21,12 @@ import (
 )
 
 func main() {
+	// Load environment variables from .env file
+	if err := godotenv.Load("../.env"); err != nil {
+		log.Printf("Warning: Error loading .env file: %v", err)
+		log.Println("Continuing with system environment variables...")
+	}
+
 	// Connect to database
 	if err := database.ConnectDatabase(); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)

@@ -12,6 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/cors"
 
+	"web-crawler-dashboard/internal/auth"
+	"web-crawler-dashboard/internal/api/handlers"
 	"web-crawler-dashboard/internal/database"
 )
 
@@ -93,11 +95,28 @@ func setupRouter() *gin.Engine {
 }
 
 func setupRoutes(router *gin.Engine) {
+	// Initialize auth service
+	authService, err := auth.NewAuthService()
+	if err != nil {
+		log.Fatalf("Failed to initialize auth service: %v", err)
+	}
+
+	// Initialize handlers
+	authHandler := handlers.NewAuthHandler(database.GetDB(), authService)
+
 	// API group
 	api := router.Group("/api")
 	
 	// Health check endpoint
 	api.GET("/health", healthCheck)
+
+	// Authentication routes
+	authRoutes := api.Group("/auth")
+	{
+		authRoutes.POST("/register", authHandler.Register)
+		authRoutes.POST("/login", authHandler.Login)
+		authRoutes.POST("/refresh", authHandler.RefreshToken)
+	}
 }
 
 func healthCheck(c *gin.Context) {

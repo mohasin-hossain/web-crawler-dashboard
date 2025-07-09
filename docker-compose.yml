@@ -1,0 +1,76 @@
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: webcrawler-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required - set in .env file}
+      MYSQL_DATABASE: ${DB_NAME:-webcrawler}
+      MYSQL_USER: ${DB_USER:-webuser}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required - set in .env file}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - webcrawler-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      target: development
+    container_name: webcrawler-backend
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=${DB_USER:-webuser}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required - set in .env file}
+      - DB_NAME=${DB_NAME:-webcrawler}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required - set in .env file}
+      - GIN_MODE=${GIN_MODE:-debug}
+      - PORT=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+      - /app/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - webcrawler-network
+    command: air
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: webcrawler-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - webcrawler-network
+
+volumes:
+  mysql_data:
+
+networks:
+  webcrawler-network:
+    driver: bridge

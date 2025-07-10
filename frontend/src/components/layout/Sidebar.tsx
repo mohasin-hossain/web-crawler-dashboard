@@ -1,8 +1,8 @@
 import {
   ChevronDown,
   LayoutDashboard,
+  Link as LinkIcon,
   LogOut,
-  Plus,
   Shield,
   Sidebar as SidebarIcon,
   User,
@@ -26,6 +26,11 @@ type NavigationItem = {
 
 const navigation: NavigationItem[] = [
   {
+    name: "URL Management",
+    href: "/urls",
+    icon: LinkIcon,
+  },
+  {
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
@@ -35,10 +40,9 @@ const navigation: NavigationItem[] = [
 interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
-  onAddUrl?: () => void;
 }
 
-export function Sidebar({ isCollapsed, onToggle, onAddUrl }: SidebarProps) {
+export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
@@ -128,27 +132,6 @@ export function Sidebar({ isCollapsed, onToggle, onAddUrl }: SidebarProps) {
               </div>
             );
           })}
-
-          {/* Add URL Button */}
-          <div className="relative group">
-            <button
-              onClick={onAddUrl}
-              className={`w-full flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100 ${
-                isCollapsed ? "justify-center" : "justify-start"
-              }`}
-            >
-              <Plus className={`w-5 h-5 ${isCollapsed ? "" : "mr-3"}`} />
-              {!isCollapsed && <span className="truncate">Add URL</span>}
-            </button>
-
-            {/* Tooltip for collapsed state */}
-            {isCollapsed && (
-              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                Add URL
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 dark:bg-gray-100 rotate-45" />
-              </div>
-            )}
-          </div>
         </nav>
 
         {/* User Profile - Bottom */}

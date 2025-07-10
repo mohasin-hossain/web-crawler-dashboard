@@ -12,14 +12,22 @@ import (
 
 // ParseResult contains the result of HTML parsing
 type ParseResult struct {
-	Title         string
-	HTMLVersion   string
-	HeadingCounts map[string]int
-	MetaTags      map[string]string
-	InternalLinks []string
-	ExternalLinks []string
-	HasLoginForm  bool
-	Error         string
+	Title              string
+	HTMLVersion        string
+	HeadingCounts      map[string]int
+	MetaTags           map[string]string
+	InternalLinks      []string
+	ExternalLinks      []string
+	HasLoginForm       bool
+	LoginFormConfidence float64 // Confidence score 0.0-1.0 for login form detection
+	Error              string
+}
+
+// LoginFormAnalysis contains detailed analysis of login form detection
+type LoginFormAnalysis struct {
+	HasLoginForm bool
+	Confidence   float64
+	Indicators   []string // List of indicators found (for debugging)
 }
 
 // ParseHTML parses HTML content and extracts various information
@@ -58,8 +66,10 @@ func ParseHTML(htmlReader io.Reader, baseURL string) (*ParseResult, error) {
 	// Extract and classify links
 	result.InternalLinks, result.ExternalLinks = extractLinks(doc, parsedBaseURL)
 
-	// Detect login forms
-	result.HasLoginForm = detectLoginForm(doc)
+	// Detect login forms with confidence scoring
+	loginAnalysis := detectLoginFormWithConfidence(doc)
+	result.HasLoginForm = loginAnalysis.HasLoginForm
+	result.LoginFormConfidence = loginAnalysis.Confidence
 
 	return result, nil
 }
@@ -238,103 +248,172 @@ func extractLinks(doc *goquery.Document, baseURL *url.URL) (internal []string, e
 	return internal, external
 }
 
-// detectLoginForm detects if the page contains a login form
-func detectLoginForm(doc *goquery.Document) bool {
-	// Look for password input fields
-	passwordInputs := doc.Find("input[type='password']")
-	if passwordInputs.Length() > 0 {
-		return true
+// detectLoginFormWithConfidence detects login forms with confidence scoring
+func detectLoginFormWithConfidence(doc *goquery.Document) LoginFormAnalysis {
+	analysis := LoginFormAnalysis{
+		HasLoginForm: false,
+		Confidence:   0.0,
+		Indicators:   []string{},
 	}
 
-	// Look for common login form patterns
-	loginIndicators := []string{
+	var confidence float64 = 0.0
+
+	// High confidence indicators (0.6-0.8 points each)
+	
+	// 1. Password input fields (0.8 points)
+	passwordInputs := doc.Find("input[type='password']")
+	if passwordInputs.Length() > 0 {
+		confidence += 0.8
+		analysis.Indicators = append(analysis.Indicators, fmt.Sprintf("password_inputs:%d", passwordInputs.Length()))
+	}
+
+	// 2. Form with login-related action URLs (0.7 points)
+	loginActionSelectors := []string{
 		"form[action*='login']",
+		"form[action*='signin']", 
+		"form[action*='auth']",
+	}
+	for _, selector := range loginActionSelectors {
+		if doc.Find(selector).Length() > 0 {
+			confidence += 0.7
+			analysis.Indicators = append(analysis.Indicators, "login_action_url")
+			break
+		}
+	}
+
+	// 3. Form with login-related ID or class (0.6 points)
+	loginFormSelectors := []string{
 		"form[id*='login']",
 		"form[class*='login']",
-		"form[action*='signin']",
 		"form[id*='signin']",
 		"form[class*='signin']",
-		"form[action*='auth']",
 		"form[id*='auth']",
 		"form[class*='auth']",
 	}
-
-	for _, selector := range loginIndicators {
+	for _, selector := range loginFormSelectors {
 		if doc.Find(selector).Length() > 0 {
-			// Check if this form also has email/username inputs
-			form := doc.Find(selector).First()
-			emailInputs := form.Find("input[type='email'], input[type='text'][name*='email'], input[type='text'][name*='username'], input[type='text'][name*='user']")
-			if emailInputs.Length() > 0 {
-				return true
-			}
+			confidence += 0.6
+			analysis.Indicators = append(analysis.Indicators, "login_form_attributes")
+			break
 		}
 	}
 
-	// Look for input fields with login-related names
-	loginInputPatterns := []string{
-		"input[name*='login']",
-		"input[name*='signin']",
-		"input[name*='username']",
+	// Medium confidence indicators (0.3-0.5 points each)
+
+	// 4. Email or username input fields (0.5 points)
+	usernameSelectors := []string{
+		"input[type='email']",
 		"input[name*='email']",
-		"input[id*='login']",
-		"input[id*='signin']",
+		"input[name*='username']",
+		"input[name*='user']",
+		"input[id*='email']", 
 		"input[id*='username']",
-		"input[id*='email']",
+		"input[id*='user']",
 	}
-
-	for _, pattern := range loginInputPatterns {
-		inputs := doc.Find(pattern)
-		if inputs.Length() > 0 {
-			// Check if there's also a password field nearby
-			found := false
-			inputs.Each(func(i int, s *goquery.Selection) {
-				if found {
-					return
-				}
-				form := s.Closest("form")
-				if form.Length() > 0 {
-					passwordFields := form.Find("input[type='password']")
-					if passwordFields.Length() > 0 {
-						found = true
-					}
-				}
-			})
-			if found {
-				return true
-			}
+	for _, selector := range usernameSelectors {
+		if doc.Find(selector).Length() > 0 {
+			confidence += 0.5
+			analysis.Indicators = append(analysis.Indicators, "username_email_inputs")
+			break
 		}
 	}
 
-	// Look for common login button text
-	loginButtonTexts := []string{"login", "log in", "signin", "sign in", "log on", "logon"}
+	// 5. Login-related button text (0.4 points)
+	loginButtonTexts := []string{"login", "log in", "signin", "sign in", "log on", "logon", "submit"}
 	buttons := doc.Find("button, input[type='submit'], input[type='button']")
 	
-	found := false
 	buttons.Each(func(i int, s *goquery.Selection) {
-		if found {
-			return
-		}
-
 		buttonText := strings.ToLower(strings.TrimSpace(s.Text()))
 		value, _ := s.Attr("value")
 		buttonValue := strings.ToLower(strings.TrimSpace(value))
 
 		for _, loginText := range loginButtonTexts {
 			if strings.Contains(buttonText, loginText) || strings.Contains(buttonValue, loginText) {
-				// Check if this button is in a form with password input
-				form := s.Closest("form")
-				if form.Length() > 0 {
-					passwordFields := form.Find("input[type='password']")
-					if passwordFields.Length() > 0 {
-						found = true
-						return
-					}
-				}
+				confidence += 0.4
+				analysis.Indicators = append(analysis.Indicators, "login_button_text")
+				return // Only count once
 			}
 		}
 	})
 
-	return found
+	// 6. Input fields with login-related names or IDs (0.3 points)
+	loginInputPatterns := []string{
+		"input[name*='login']",
+		"input[name*='signin']",
+		"input[id*='login']",
+		"input[id*='signin']",
+	}
+	for _, pattern := range loginInputPatterns {
+		if doc.Find(pattern).Length() > 0 {
+			confidence += 0.3
+			analysis.Indicators = append(analysis.Indicators, "login_input_names")
+			break
+		}
+	}
+
+	// Low confidence indicators (0.1-0.2 points each)
+
+	// 7. "Remember me" checkbox (0.2 points)
+	rememberMeSelectors := []string{
+		"input[name*='remember']",
+		"input[id*='remember']",
+		"label:contains('Remember')",
+		"label:contains('remember')",
+	}
+	for _, selector := range rememberMeSelectors {
+		if doc.Find(selector).Length() > 0 {
+			confidence += 0.2
+			analysis.Indicators = append(analysis.Indicators, "remember_me_checkbox")
+			break
+		}
+	}
+
+	// 8. "Forgot password" link (0.1 points)
+	forgotPasswordSelectors := []string{
+		"a:contains('Forgot')",
+		"a:contains('forgot')",
+		"a[href*='forgot']",
+		"a[href*='reset']",
+	}
+	for _, selector := range forgotPasswordSelectors {
+		if doc.Find(selector).Length() > 0 {
+			confidence += 0.1
+			analysis.Indicators = append(analysis.Indicators, "forgot_password_link")
+			break
+		}
+	}
+
+	// Bonus: If password field is in same form as username/email field (+0.3)
+	if passwordInputs.Length() > 0 {
+		passwordInputs.Each(func(i int, s *goquery.Selection) {
+			form := s.Closest("form")
+			if form.Length() > 0 {
+				for _, usernameSelector := range usernameSelectors {
+					if form.Find(usernameSelector).Length() > 0 {
+						confidence += 0.3
+						analysis.Indicators = append(analysis.Indicators, "password_username_same_form")
+						return // Only count once
+					}
+				}
+			}
+		})
+	}
+
+	// Cap confidence at 1.0
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+
+	analysis.Confidence = confidence
+	// Consider it a login form if confidence >= 0.6
+	analysis.HasLoginForm = confidence >= 0.6
+
+	return analysis
+}
+
+// detectLoginForm is kept for backward compatibility
+func detectLoginForm(doc *goquery.Document) bool {
+	return detectLoginFormWithConfidence(doc).HasLoginForm
 }
 
 // SanitizeText cleans up extracted text content

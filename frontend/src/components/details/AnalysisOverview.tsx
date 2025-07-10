@@ -15,14 +15,23 @@ interface AnalysisOverviewProps {
 }
 
 export function AnalysisOverview({ analysis }: AnalysisOverviewProps) {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "Not available";
+
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "Invalid date";
+
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "Invalid date";
+    }
   };
 
   const getSuccessRate = () => {
@@ -82,7 +91,7 @@ export function AnalysisOverview({ analysis }: AnalysisOverviewProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -129,7 +138,10 @@ export function AnalysisOverview({ analysis }: AnalysisOverviewProps) {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.title} className="bg-white rounded-lg border p-6">
+            <div
+              key={stat.title}
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-6"
+            >
               <div className="flex items-center">
                 <div className={`rounded-lg p-3 ${stat.bgColor}`}>
                   <Icon className={`w-6 h-6 ${stat.color}`} />
@@ -149,7 +161,7 @@ export function AnalysisOverview({ analysis }: AnalysisOverviewProps) {
       </div>
 
       {/* Analysis Summary */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Analysis Summary
         </h3>

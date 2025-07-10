@@ -283,6 +283,8 @@ func (s *URLService) handleCrawlResult(urlID uint, result *crawler.CrawlResult) 
 				log.Printf("[SERVICE] Failed to create analysis result for URL ID %d: %v", urlID, err)
 			} else {
 				log.Printf("[SERVICE] New analysis result created successfully for URL ID %d", urlID)
+				// Save broken links details
+				s.saveBrokenLinksDetails(analysis.ID, result.BrokenLinksDetails)
 			}
 		} else if err == nil {
 			// Update existing analysis
@@ -292,6 +294,9 @@ func (s *URLService) handleCrawlResult(urlID uint, result *crawler.CrawlResult) 
 				log.Printf("[SERVICE] Failed to update analysis result for URL ID %d: %v", urlID, err)
 			} else {
 				log.Printf("[SERVICE] Analysis result updated successfully for URL ID %d", urlID)
+				// Delete existing broken links and save new ones
+				s.db.Where("analysis_id = ?", analysis.ID).Delete(&models.BrokenLink{})
+				s.saveBrokenLinksDetails(analysis.ID, result.BrokenLinksDetails)
 			}
 		} else {
 			log.Printf("[SERVICE] Error checking existing analysis for URL ID %d: %v", urlID, err)
@@ -354,4 +359,29 @@ func (s *URLService) GetUserStats(userID uint) (map[string]interface{}, error) {
 	stats["recent_activity"] = recentURLs
 
 	return stats, nil
+}
+
+// saveBrokenLinksDetails saves broken links details to the database
+func (s *URLService) saveBrokenLinksDetails(analysisID uint, brokenLinks []crawler.BrokenLinkInfo) {
+	if len(brokenLinks) == 0 {
+		return
+	}
+
+	// Convert to database models
+	var dbBrokenLinks []models.BrokenLink
+	for _, link := range brokenLinks {
+		dbBrokenLinks = append(dbBrokenLinks, models.BrokenLink{
+			AnalysisID: analysisID,
+			URL:        link.URL,
+			StatusCode: link.StatusCode,
+			Error:      link.Error,
+		})
+	}
+
+	// Save to database
+	if err := s.db.Create(&dbBrokenLinks).Error; err != nil {
+		log.Printf("[SERVICE] Failed to save broken links details for analysis ID %d: %v", analysisID, err)
+	} else {
+		log.Printf("[SERVICE] Saved %d broken links details for analysis ID %d", len(dbBrokenLinks), analysisID)
+	}
 } 

@@ -89,7 +89,7 @@ export function LinksChart({ analysis }: LinksChartProps) {
   };
 
   const getLinkInsights = () => {
-    const { internal_links = 0, external_links = 0 } = analysis;
+    const { internal_links = 0 } = analysis;
 
     if (totalLinks === 0) {
       return {
@@ -139,32 +139,34 @@ export function LinksChart({ analysis }: LinksChartProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
             <TrendingUp className="w-5 h-5 mr-2" />
             Link Analysis
           </h2>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setChartType("bar")}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 chartType === "bar"
-                  ? "bg-blue-100 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              <BarChart className="w-4 h-4" />
+              <BarChart className="w-4 h-4 mr-2 inline" />
+              Bar Chart
             </button>
             <button
               onClick={() => setChartType("donut")}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 chartType === "donut"
-                  ? "bg-blue-100 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              <PieChart className="w-4 h-4" />
+              <PieChart className="w-4 h-4 mr-2 inline" />
+              Donut Chart
             </button>
           </div>
         </div>
@@ -180,7 +182,7 @@ export function LinksChart({ analysis }: LinksChartProps) {
       </div>
 
       {/* Chart */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">
             Internal vs External Links
@@ -229,10 +231,10 @@ export function LinksChart({ analysis }: LinksChartProps) {
                   </Pie>
                   <Tooltip content={<CustomPieTooltip />} />
                   <Legend
-                    formatter={(value, entry) => (
+                    formatter={(value, entry: any) => (
                       <span style={{ color: entry.color }}>
-                        {value}: {entry.payload.count} (
-                        {entry.payload.percentage}%)
+                        {value}: {entry.payload?.count || 0} (
+                        {entry.payload?.percentage || 0}%)
                       </span>
                     )}
                   />
@@ -281,37 +283,6 @@ export function LinksChart({ analysis }: LinksChartProps) {
               </div>
             </div>
           ))}
-        </div>
-
-        {/* SEO Tips */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <h4 className="font-medium text-gray-900 mb-3">
-            Link Building Best Practices
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-            <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="font-medium">Internal Links:</span>
-              </div>
-              <ul className="space-y-1 ml-4">
-                <li>• Help users navigate your site</li>
-                <li>• Distribute page authority</li>
-                <li>• Improve crawl depth</li>
-              </ul>
-            </div>
-            <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="font-medium">External Links:</span>
-              </div>
-              <ul className="space-y-1 ml-4">
-                <li>• Provide value to users</li>
-                <li>• Link to authoritative sources</li>
-                <li>• Use descriptive anchor text</li>
-              </ul>
-            </div>
-          </div>
         </div>
       </div>
     </div>

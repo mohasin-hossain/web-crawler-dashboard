@@ -6,16 +6,12 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  ExternalLink,
-  Eye,
   Globe,
-  Play,
-  Square,
-  Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { urlsApi } from "../../services/api/urls";
 import type { Url, UrlTableFilters } from "../../types/url";
+import { ProcessingIndicator, TableSkeleton } from "../common";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import {
@@ -26,12 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
 import { StatusBadge } from "./StatusBadge";
 
 interface UrlTableProps {
@@ -50,15 +40,7 @@ interface UrlTableProps {
   onSelectAll: () => void;
   onDeselectAll: () => void;
   onPageChange: (page: number) => void;
-  onStartAnalysis: (id: number) => void;
-  onStopAnalysis: (id: number) => void;
-  onDeleteUrl: (id: number) => void;
   onViewDetails: (url: Url) => void;
-  loadingStates: {
-    analyze: boolean;
-    stop: boolean;
-    delete: boolean;
-  };
 }
 
 type SortField =
@@ -68,7 +50,8 @@ type SortField =
   | "created_at"
   | "internal_links"
   | "external_links"
-  | "broken_links";
+  | "broken_links"
+  | "html_version";
 type SortDirection = "asc" | "desc";
 
 export function UrlTable({
@@ -81,11 +64,7 @@ export function UrlTable({
   onSelectAll,
   onDeselectAll,
   onPageChange,
-  onStartAnalysis,
-  onStopAnalysis,
-  onDeleteUrl,
   onViewDetails,
-  loadingStates,
 }: UrlTableProps) {
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -157,12 +136,12 @@ export function UrlTable({
     return urlsApi.formatUrlForDisplay(url);
   };
 
-  const canStartAnalysis = (url: Url) => {
-    return url.status === "pending" || url.status === "error";
-  };
-
-  const canStopAnalysis = (url: Url) => {
-    return url.status === "processing";
+  const handleRowClick = (url: Url, event: React.MouseEvent) => {
+    // Don't trigger row click if clicking on checkbox
+    if ((event.target as HTMLElement).closest('input[type="checkbox"]')) {
+      return;
+    }
+    onViewDetails(url);
   };
 
   const renderPagination = () => {
@@ -223,40 +202,55 @@ export function UrlTable({
     );
   };
 
-  if (safeUrls.length === 0 && !loading) {
+  // Show skeleton loader when loading and no URLs
+  if (loading && safeUrls.length === 0) {
+    return <TableSkeleton rows={pagination?.limit || 10} />;
+  }
+
+  // Show empty state
+  if (!loading && safeUrls.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-            <Globe className="w-8 h-8 text-gray-400" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              No URLs found
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400">
-              Add your first URL to get started with web crawling and analysis.
-            </p>
-          </div>
-        </div>
+      <div className="text-center py-8">
+        <Globe className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No URLs found
+        </h3>
+        <p className="text-gray-500">
+          Start by adding a URL for analysis using the "Add URL" button above.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      {/* Show loading overlay when refreshing existing data */}
+      {loading && safeUrls.length > 0 && (
+        <div className="relative">
+          <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 rounded-lg flex items-center justify-center">
+            <ProcessingIndicator url="Refreshing URLs..." />
+          </div>
+        </div>
+      )}
+
+      <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
                   checked={isAllSelected}
+                  ref={(el) => {
+                    if (el) {
+                      const checkbox = el.querySelector(
+                        'input[type="checkbox"]'
+                      ) as HTMLInputElement;
+                      if (checkbox)
+                        checkbox.indeterminate = isPartiallySelected;
+                    }
+                  }}
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all URLs"
-                  {...(isPartiallySelected && {
-                    "data-state": "indeterminate",
-                  })}
                 />
               </TableHead>
 
@@ -277,6 +271,16 @@ export function UrlTable({
                   className="h-auto p-0 font-semibold"
                 >
                   Title {getSortIcon("title")}
+                </Button>
+              </TableHead>
+
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort("html_version")}
+                  className="h-auto p-0 font-semibold"
+                >
+                  HTML Version {getSortIcon("html_version")}
                 </Button>
               </TableHead>
 
@@ -329,15 +333,17 @@ export function UrlTable({
                   Created {getSortIcon("created_at")}
                 </Button>
               </TableHead>
-
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
             {sortedUrls.map((url) => (
-              <TableRow key={url.id} className="hover:bg-gray-50">
-                <TableCell>
+              <TableRow
+                key={url.id}
+                className="hover:bg-gray-50 cursor-pointer"
+                onClick={(e) => handleRowClick(url, e)}
+              >
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     checked={selectedUrls.has(url.id)}
                     onCheckedChange={(checked) => {
@@ -352,29 +358,31 @@ export function UrlTable({
                 </TableCell>
 
                 <TableCell>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          className="text-left hover:text-blue-600 max-w-[300px] truncate block"
-                          onClick={() => onViewDetails(url)}
-                        >
-                          {formatUrl(url.url)}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{url.url}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="max-w-[200px] truncate text-blue-600 hover:text-blue-800"
+                      title={url.url}
+                    >
+                      {formatUrl(url.url)}
+                    </div>
+                    {url.status === "processing" && (
+                      <ProcessingIndicator className="ml-2" />
+                    )}
+                  </div>
                 </TableCell>
 
                 <TableCell>
                   <span
-                    className="max-w-[200px] truncate block"
+                    className="max-w-[150px] truncate block"
                     title={url.title || "No title"}
                   >
                     {url.title || "No title"}
+                  </span>
+                </TableCell>
+
+                <TableCell>
+                  <span className="text-sm text-gray-600">
+                    {url.html_version || "—"}
                   </span>
                 </TableCell>
 
@@ -402,118 +410,6 @@ export function UrlTable({
                   <span className="text-sm text-gray-500">
                     {formatDate(url.created_at)}
                   </span>
-                </TableCell>
-
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end space-x-1">
-                    {/* View Details Button */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onViewDetails(url)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>View Details</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    {/* Start Analysis Button - always visible */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onStartAnalysis(url.id)}
-                            disabled={
-                              loadingStates.analyze ||
-                              !canStartAnalysis(url) ||
-                              url.status === "processing"
-                            }
-                          >
-                            <Play className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {canStartAnalysis(url)
-                            ? "Start Analysis"
-                            : url.status === "processing"
-                            ? "Analysis in progress"
-                            : url.status === "completed"
-                            ? "Analysis completed"
-                            : "Start Analysis"}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    {/* Stop Analysis Button - always visible */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onStopAnalysis(url.id)}
-                            disabled={
-                              loadingStates.stop || !canStopAnalysis(url)
-                            }
-                          >
-                            <Square className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {canStopAnalysis(url)
-                            ? "Stop Analysis"
-                            : "No analysis running"}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    {/* Open URL Button */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(url.url, "_blank")}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Open URL</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    {/* Delete Button */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onDeleteUrl(url.id)}
-                            disabled={
-                              loadingStates.delete ||
-                              url.status === "processing"
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {url.status === "processing"
-                            ? "Cannot delete while processing"
-                            : "Delete URL"}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
                 </TableCell>
               </TableRow>
             ))}

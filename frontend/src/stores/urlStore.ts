@@ -5,12 +5,43 @@ import { urlsApi } from "../services/api/urls";
 import type {
   AnalysisResult,
   CreateUrlRequest,
+  RecentActivity,
   Url,
   UrlsQueryParams,
   UrlsResponse,
   UrlStats,
   UrlTableFilters,
 } from "../types/url";
+
+// Helper function to determine action from URL status and timestamps
+function getActionFromUrl(url: Url): RecentActivity["action"] {
+  const now = new Date().getTime();
+  const updated = new Date(url.updated_at).getTime();
+  const created = new Date(url.created_at).getTime();
+
+  // If URL was recently created (within last hour)
+  if (now - created < 60 * 60 * 1000) {
+    return "added";
+  }
+
+  // If recently updated and completed
+  if (url.status === "completed" && now - updated < 60 * 60 * 1000) {
+    return "completed";
+  }
+
+  // If recently updated and failed
+  if (url.status === "error" && now - updated < 60 * 60 * 1000) {
+    return "failed";
+  }
+
+  // If currently processing
+  if (url.status === "processing") {
+    return "started";
+  }
+
+  // Default to completed for completed URLs, added for others
+  return url.status === "completed" ? "completed" : "added";
+}
 
 interface UrlState {
   // Data state
@@ -81,6 +112,7 @@ interface UrlActions {
   setSelectedUrl: (url: Url | null) => void;
   refreshUrls: () => Promise<void>;
   calculateStats: () => void;
+  syncUrlsData: (polledUrls: Url[]) => void;
 }
 
 type UrlStore = UrlState & UrlActions;
@@ -173,13 +205,19 @@ export const useUrlStore = create<UrlStore>()(
         });
 
         try {
-          await urlsApi.createUrl(data);
+          const newUrl = await urlsApi.createUrl(data);
           toast.success("URL added successfully!");
 
           // Refresh the list
           await get().refreshUrls();
 
-          set({ loadingStates: { ...state.loadingStates, create: false } });
+          // Auto-select the newly created URL
+          const newSelected = new Set(state.selectedUrls);
+          newSelected.add(newUrl.id);
+          set({
+            selectedUrls: newSelected,
+            loadingStates: { ...state.loadingStates, create: false },
+          });
         } catch (error: any) {
           set({
             error: error.message,
@@ -470,37 +508,106 @@ export const useUrlStore = create<UrlStore>()(
           return;
         }
 
+        // Basic counts
+        const total = state.pagination?.total || 0;
+        const pending = urls.filter((url) => url.status === "pending").length;
+        const processing = urls.filter(
+          (url) => url.status === "processing"
+        ).length;
+        const completed = urls.filter(
+          (url) => url.status === "completed"
+        ).length;
+        const error = urls.filter((url) => url.status === "error").length;
+
+        // Calculate success rate
+        const analyzed = completed + error;
+        const successRate =
+          analyzed > 0 ? Math.round((completed / analyzed) * 100) : 0;
+
+        // Remove average analysis time calculation - not needed
+
+        // Generate recent activity (last 10 actions based on timestamps)
+        const recentActivity = urls
+          .sort(
+            (a, b) =>
+              new Date(b.updated_at).getTime() -
+              new Date(a.updated_at).getTime()
+          )
+          .slice(0, 10)
+          .map((url) => ({
+            id: url.id,
+            url: url.url,
+            action: getActionFromUrl(url),
+            timestamp: url.updated_at,
+            status: url.status,
+          }));
+
+        // Generate mock trend data (in a real app, this would come from historical data)
+        const generateTrend = (currentValue: number): any => ({
+          value: currentValue,
+          change: Math.floor(Math.random() * 20) - 10, // Random change between -10 and +10
+          isUpward: Math.random() > 0.5,
+          period: "vs last week",
+        });
+
         const stats: UrlStats = {
-          total: state.pagination?.total || 0,
-          pending: urls.filter((url) => url.status === "pending").length,
-          processing: urls.filter((url) => url.status === "processing").length,
-          completed: urls.filter((url) => url.status === "completed").length,
-          error: urls.filter((url) => url.status === "error").length,
-          totalBrokenLinks: urls.reduce(
-            (sum, url) => sum + (url.broken_links || 0),
-            0
-          ),
-          avgInternalLinks:
-            urls.length > 0
-              ? Math.round(
-                  urls.reduce(
-                    (sum, url) => sum + (url.internal_links || 0),
-                    0
-                  ) / urls.length
-                )
-              : 0,
-          avgExternalLinks:
-            urls.length > 0
-              ? Math.round(
-                  urls.reduce(
-                    (sum, url) => sum + (url.external_links || 0),
-                    0
-                  ) / urls.length
-                )
-              : 0,
+          total,
+          pending,
+          processing,
+          completed,
+          error,
+          successRate,
+          recentActivity,
+          trends: {
+            totalUrls: generateTrend(total),
+            successRate: generateTrend(successRate),
+          },
         };
 
         set({ stats });
+      },
+
+      // Sync polled URLs data to store for real-time updates
+      syncUrlsData: (polledUrls: Url[]) => {
+        const state = get();
+
+        // Only update if we have polled data and current URLs in store
+        if (!polledUrls || polledUrls.length === 0 || !state.urls) {
+          return;
+        }
+
+        // Create a map of polled URLs for quick lookup
+        const polledUrlsMap = new Map(polledUrls.map((url) => [url.id, url]));
+
+        // Update existing URLs with polled data while preserving order
+        const updatedUrls = state.urls.map((storeUrl) => {
+          const polledUrl = polledUrlsMap.get(storeUrl.id);
+          // Update if polled data exists and is newer
+          if (
+            polledUrl &&
+            new Date(polledUrl.updated_at) >= new Date(storeUrl.updated_at)
+          ) {
+            return polledUrl;
+          }
+          return storeUrl;
+        });
+
+        // Only update store if there are actual changes
+        const hasChanges = updatedUrls.some((url, index) => {
+          const originalUrl = state.urls[index];
+          return (
+            !originalUrl ||
+            url.status !== originalUrl.status ||
+            url.updated_at !== originalUrl.updated_at
+          );
+        });
+
+        if (hasChanges) {
+          set({ urls: updatedUrls });
+
+          // Recalculate stats with updated data
+          get().calculateStats();
+        }
       },
     }),
     {

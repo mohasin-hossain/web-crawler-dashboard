@@ -1,5 +1,10 @@
 // URL Status types
-export type UrlStatus = "pending" | "processing" | "completed" | "error";
+export type UrlStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "error"
+  | "unknown";
 
 // Main URL interface
 export interface Url {
@@ -116,9 +121,29 @@ export interface UrlStats {
   processing: number;
   completed: number;
   error: number;
-  totalBrokenLinks: number;
-  avgInternalLinks: number;
-  avgExternalLinks: number;
+
+  // Enhanced stats
+  successRate: number; // Percentage of completed vs total analyzed
+  recentActivity: RecentActivity[];
+  trends: {
+    totalUrls: TrendData;
+    successRate: TrendData;
+  };
+}
+
+export interface RecentActivity {
+  id: number;
+  url: string;
+  action: "added" | "completed" | "failed" | "started";
+  timestamp: string;
+  status: UrlStatus;
+}
+
+export interface TrendData {
+  value: number;
+  change: number; // Percentage change
+  isUpward: boolean;
+  period: string; // e.g., "vs last week"
 }
 
 // Bulk action types

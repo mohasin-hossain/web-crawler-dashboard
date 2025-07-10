@@ -8,7 +8,9 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const getStatusConfig = (status: UrlStatus) => {
-    switch (status) {
+    const normalizedStatus = status?.toLowerCase();
+
+    switch (normalizedStatus) {
       case "pending":
         return {
           variant: "secondary" as const,
@@ -32,6 +34,12 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
           variant: "destructive" as const,
           color: "bg-red-100 text-red-800 border-red-200",
           text: "Error",
+        };
+      case "unknown":
+        return {
+          variant: "outline" as const,
+          color: "bg-gray-100 text-gray-800 border-gray-200",
+          text: "Unknown",
         };
       default:
         return {

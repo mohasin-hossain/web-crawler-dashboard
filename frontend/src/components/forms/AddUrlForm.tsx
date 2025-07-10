@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Globe, Loader2, Plus } from "lucide-react";
+import { Globe, Loader2, Plus, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
+import { ParticleButton } from "../ui/particle-button";
 
 // Validation schema with Zod
 const urlSchema = z.object({
@@ -154,15 +155,23 @@ export function AddUrlForm({
               Cancel
             </Button>
           )}
-          <Button
+          <ParticleButton
             type="submit"
             disabled={isLoading}
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
           >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {!isLoading && <Plus className="mr-2 h-4 w-4" />}
-            Add URL
-          </Button>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Add URL
+              </>
+            )}
+          </ParticleButton>
         </div>
       </form>
     </Form>
@@ -279,24 +288,49 @@ export function QuickAddUrlForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`space-y-2 ${className}`}>
-      <div className="flex space-x-2">
+    <form onSubmit={handleSubmit} className={`space-y-3 ${className}`}>
+      <div className="flex space-x-4">
         <div className="relative flex-1">
-          <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Globe className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
             placeholder="https://example.com"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            className="pl-10"
+            className="pl-12 h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500"
             disabled={isLoading}
           />
         </div>
-        <Button type="submit" disabled={isLoading || !url.trim()}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Add
-        </Button>
+        <ParticleButton
+          type="submit"
+          disabled={isLoading || !url.trim()}
+          className="h-12 px-8 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center"
+          variant="default"
+          size="lg"
+          onSuccess={() => {
+            // Optional: Add any success feedback here
+            console.log("URL added successfully!");
+          }}
+          successDuration={800}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              Adding...
+            </>
+          ) : (
+            <>
+              <Plus className="h-5 w-5 mr-2" />
+              Add URL
+            </>
+          )}
+        </ParticleButton>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="flex items-start space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <XCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
     </form>
   );
 }

@@ -1,6 +1,6 @@
 import { Play, Square, Trash2, X } from "lucide-react";
 import { useState } from "react";
-import type { BulkAction } from "../../types/url";
+import type { BulkAction, Url } from "../../types/url";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +15,7 @@ import { Button } from "../ui/button";
 
 interface BulkActionsProps {
   selectedCount: number;
+  selectedUrls: Url[]; // Add selected URLs to analyze their statuses
   onBulkDelete: () => Promise<void>;
   onBulkAnalyze: () => Promise<void>;
   onBulkStop: () => Promise<void>;
@@ -24,6 +25,7 @@ interface BulkActionsProps {
 
 export function BulkActions({
   selectedCount,
+  selectedUrls,
   onBulkDelete,
   onBulkAnalyze,
   onBulkStop,
@@ -36,6 +38,27 @@ export function BulkActions({
   if (selectedCount === 0) {
     return null;
   }
+
+  // Analyze selected URLs statuses
+  const processingUrls = selectedUrls.filter(
+    (url) => url.status?.toLowerCase() === "processing"
+  );
+  const pendingUrls = selectedUrls.filter(
+    (url) => url.status?.toLowerCase() === "pending"
+  );
+  const errorUrls = selectedUrls.filter(
+    (url) => url.status?.toLowerCase() === "error"
+  );
+  const unknownUrls = selectedUrls.filter(
+    (url) =>
+      url.status?.toLowerCase() === "unknown" ||
+      !url.status ||
+      url.status?.toLowerCase() === ""
+  );
+
+  const canStartAnalysis =
+    pendingUrls.length > 0 || errorUrls.length > 0 || unknownUrls.length > 0;
+  const canStopAnalysis = processingUrls.length > 0;
 
   const handleBulkAction = async (action: BulkAction) => {
     setPendingAction(action);
@@ -70,12 +93,35 @@ export function BulkActions({
     return loading || pendingAction === action;
   };
 
+  const getAnalysisButtonText = () => {
+    if (processingUrls.length > 0) {
+      return `${processingUrls.length} Running`;
+    }
+    if (canStartAnalysis) {
+      const count = pendingUrls.length + errorUrls.length + unknownUrls.length;
+      return `Start Analysis (${count})`;
+    }
+    return "Start Analysis";
+  };
+
+  const getStopButtonText = () => {
+    if (processingUrls.length > 0) {
+      return `Stop Analysis (${processingUrls.length})`;
+    }
+    return "Stop Analysis";
+  };
+
   return (
     <>
       <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-center space-x-4">
           <span className="text-sm font-medium text-blue-900">
             {selectedCount} URL{selectedCount !== 1 ? "s" : ""} selected
+            {processingUrls.length > 0 && (
+              <span className="ml-2 text-xs text-orange-600">
+                ({processingUrls.length} processing)
+              </span>
+            )}
           </span>
 
           <div className="flex items-center space-x-2">
@@ -83,8 +129,12 @@ export function BulkActions({
               variant="outline"
               size="sm"
               onClick={() => handleBulkAction("analyze")}
-              disabled={loading || pendingAction !== null}
-              className="text-green-700 border-green-300 hover:bg-green-50"
+              disabled={loading || pendingAction !== null || !canStartAnalysis}
+              className={`${
+                canStartAnalysis
+                  ? "text-green-700 border-green-300 hover:bg-green-50"
+                  : "text-gray-400 border-gray-200 cursor-not-allowed"
+              }`}
             >
               {isActionLoading("analyze") ? (
                 <>
@@ -94,7 +144,7 @@ export function BulkActions({
               ) : (
                 <>
                   <Play className="mr-2 h-4 w-4" />
-                  Start Analysis
+                  {getAnalysisButtonText()}
                 </>
               )}
             </Button>
@@ -103,8 +153,12 @@ export function BulkActions({
               variant="outline"
               size="sm"
               onClick={() => handleBulkAction("stop")}
-              disabled={loading || pendingAction !== null}
-              className="text-orange-700 border-orange-300 hover:bg-orange-50"
+              disabled={loading || pendingAction !== null || !canStopAnalysis}
+              className={`${
+                canStopAnalysis
+                  ? "text-orange-700 border-orange-300 hover:bg-orange-50"
+                  : "text-gray-400 border-gray-200 cursor-not-allowed opacity-50"
+              }`}
             >
               {isActionLoading("stop") ? (
                 <>
@@ -114,7 +168,7 @@ export function BulkActions({
               ) : (
                 <>
                   <Square className="mr-2 h-4 w-4" />
-                  Stop Analysis
+                  {getStopButtonText()}
                 </>
               )}
             </Button>

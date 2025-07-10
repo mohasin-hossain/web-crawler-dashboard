@@ -558,6 +558,7 @@ func (h *URLHandler) GetAnalysisResult(c *gin.Context) {
 			"h6": analysis.H6Count,
 		},
 		"broken_links_details": analysis.BrokenLinksDetails,
+		"created_at":           url.CreatedAt,
 		"analyzed_at":          analysis.AnalyzedAt,
 	}
 

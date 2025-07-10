@@ -26,11 +26,11 @@ type CrawlerConfig struct {
 func DefaultConfig() *CrawlerConfig {
 	return &CrawlerConfig{
 		Timeout:         30 * time.Second,
-		UserAgent:       "WebCrawlerBot/1.0 (+https://github.com/your-repo/web-crawler-dashboard)",
+		UserAgent:       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
 		MaxRedirects:    5,
 		FollowRedirects: true,
 		MaxRetries:      3,
-		RetryDelay:      1 * time.Second,
+		RetryDelay:      2 * time.Second, // Increased delay to avoid rate limiting
 	}
 }
 
@@ -200,8 +200,13 @@ func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlR
 		return result
 	}
 
-	// Set user agent
+	// Set browser-like headers to avoid bot detection
 	req.Header.Set("User-Agent", c.config.UserAgent)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Cache-Control", "max-age=0")
+	
 	log.Printf("[CRAWLER] Making HTTP request to: %s", targetURL)
 
 	// Perform request with retries

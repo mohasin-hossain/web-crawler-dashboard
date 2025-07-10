@@ -26,17 +26,17 @@ func NewLinkAnalyzer(config *CrawlerConfig) *LinkAnalyzer {
 
 	return &LinkAnalyzer{
 		client: &http.Client{
-			Timeout: 15 * time.Second, // Slightly longer timeout for link checking
+			Timeout: 10 * time.Second, // Shorter timeout for link checking
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				// Allow one redirect for better link checking accuracy
-				if len(via) >= 1 {
+				// Allow redirects for better link checking accuracy
+				if len(via) >= 3 {
 					return http.ErrUseLastResponse
 				}
 				return nil
 			},
 		},
-		maxConcurrent: 8, // Limit concurrent requests to be respectful to servers
-		timeout:       15 * time.Second, // Match client timeout
+		maxConcurrent: 3, // Much more conservative - only 3 concurrent requests
+		timeout:       10 * time.Second,
 		userAgent:     config.UserAgent,
 	}
 }
@@ -71,11 +71,17 @@ func (la *LinkAnalyzer) AnalyzeLinks(ctx context.Context, links []string) []Brok
 				return
 			}
 
+			// Add a small delay to be more respectful to servers
+			time.Sleep(time.Millisecond * 200)
+
 			// Check the link
 			if brokenInfo := la.checkLink(ctx, url); brokenInfo != nil {
-				mutex.Lock()
-				brokenLinks = append(brokenLinks, *brokenInfo)
-				mutex.Unlock()
+				// Don't report 403 errors as broken links since they're often just bot blocking
+				if brokenInfo.StatusCode != 403 {
+					mutex.Lock()
+					brokenLinks = append(brokenLinks, *brokenInfo)
+					mutex.Unlock()
+				}
 			}
 		}(link)
 	}
@@ -99,7 +105,7 @@ func (la *LinkAnalyzer) filterLinksForAnalysis(links []string) []string {
 		"microsoft.com", "apple.com", "amazon.com", "google.com",
 		
 		// Common development tools
-		"github.com", "gitlab.com", "bitbucket.com", "stackoverflow.com",
+		"github.com", "gitlab.com", "bitbucket.com",
 	}
 
 	var filtered []string
@@ -169,15 +175,18 @@ func (la *LinkAnalyzer) tryRequest(ctx context.Context, method, linkURL string) 
 
 		// Set headers
 		req.Header.Set("User-Agent", la.userAgent)
-		req.Header.Set("Accept", "*/*")
-		req.Header.Set("Cache-Control", "no-cache")
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Cache-Control", "max-age=0")
 
 		// Perform request
 		resp, err := la.client.Do(req)
 		if err != nil {
 			lastErr = err
+			// Only retry on network errors, not on HTTP errors
 			if attempt < maxRetries {
-				// Brief delay before retry
+				// Longer delay before retry
 				select {
 				case <-ctx.Done():
 					return &BrokenLinkInfo{
@@ -185,7 +194,7 @@ func (la *LinkAnalyzer) tryRequest(ctx context.Context, method, linkURL string) 
 						StatusCode: 0,
 						Error:      "Request cancelled",
 					}
-				case <-time.After(time.Millisecond * 500):
+				case <-time.After(time.Second * 1):
 					continue
 				}
 			}
@@ -196,10 +205,33 @@ func (la *LinkAnalyzer) tryRequest(ctx context.Context, method, linkURL string) 
 
 		// Check status code
 		if resp.StatusCode >= 400 {
+			// Don't retry 4xx client errors - they're usually intentional (like 403 bot blocking)
+			if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+				return &BrokenLinkInfo{
+					URL:        linkURL,
+					StatusCode: resp.StatusCode,
+					Error:      fmt.Sprintf("HTTP %d", resp.StatusCode),
+				}
+			}
+			
+			// Retry 5xx server errors
+			if resp.StatusCode >= 500 && attempt < maxRetries {
+				select {
+				case <-ctx.Done():
+					return &BrokenLinkInfo{
+						URL:        linkURL,
+						StatusCode: 0,
+						Error:      "Request cancelled",
+					}
+				case <-time.After(time.Second * 2):
+					continue
+				}
+			}
+			
 			return &BrokenLinkInfo{
 				URL:        linkURL,
 				StatusCode: resp.StatusCode,
-				Error:      fmt.Sprintf("HTTP %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode)),
+				Error:      fmt.Sprintf("HTTP %d", resp.StatusCode),
 			}
 		}
 
@@ -207,11 +239,11 @@ func (la *LinkAnalyzer) tryRequest(ctx context.Context, method, linkURL string) 
 		return nil
 	}
 
-	// All attempts failed
+	// If we get here, all retries failed
 	return &BrokenLinkInfo{
 		URL:        linkURL,
 		StatusCode: 0,
-		Error:      fmt.Sprintf("Request failed after %d attempts: %v", maxRetries+1, lastErr),
+		Error:      fmt.Sprintf("Failed after %d attempts: %v", maxRetries+1, lastErr),
 	}
 }
 

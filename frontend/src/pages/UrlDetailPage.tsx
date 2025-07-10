@@ -9,12 +9,14 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { ProcessingIndicator, UrlDetailSkeleton } from "../components/common";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { AnalysisOverview } from "../components/details/AnalysisOverview";
 import { BrokenLinksTable } from "../components/details/BrokenLinksTable";
 import { LinksChart } from "../components/details/LinksChart";
 import { Button } from "../components/ui/button";
+import { useUrlResultPolling } from "../hooks/useUrlPolling";
 import { urlsApi } from "../services/api/urls";
 import type { AnalysisResult } from "../types/url";
 
@@ -22,7 +24,6 @@ export function UrlDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState({
     analyze: false,
@@ -30,27 +31,35 @@ export function UrlDetailPage() {
     delete: false,
   });
 
-  const fetchAnalysis = async () => {
-    if (!id) return;
+  const urlId = id ? Number(id) : 0;
 
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await urlsApi.getAnalysisResult(Number(id));
-      setAnalysis(result);
-    } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to load analysis results";
-      setError(errorMessage);
-      toast.error("Failed to load analysis results");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Scroll to top when component mounts or ID changes
   useEffect(() => {
-    fetchAnalysis();
+    window.scrollTo(0, 0);
   }, [id]);
+
+  // Use smart polling for real-time updates
+  const {
+    data: polledAnalysis,
+    isLoading: pollingLoading,
+    error: pollingError,
+    refetch,
+  } = useUrlResultPolling(urlId, !!urlId);
+
+  // Sync polled data with local state
+  useEffect(() => {
+    if (polledAnalysis) {
+      setAnalysis(polledAnalysis);
+      setError(null);
+    }
+  }, [polledAnalysis]);
+
+  // Handle polling errors
+  useEffect(() => {
+    if (pollingError) {
+      setError(pollingError.message);
+    }
+  }, [pollingError]);
 
   const handleStartAnalysis = async () => {
     if (!analysis) return;
@@ -60,9 +69,9 @@ export function UrlDetailPage() {
       await urlsApi.startAnalysis(analysis.id);
       toast.success("Analysis started successfully");
 
-      // Refresh the analysis after a short delay
+      // Force refresh polling
       setTimeout(() => {
-        fetchAnalysis();
+        refetch();
       }, 1000);
     } catch (err: unknown) {
       const errorMessage =
@@ -81,9 +90,9 @@ export function UrlDetailPage() {
       await urlsApi.stopAnalysis(analysis.id);
       toast.success("Analysis stopped successfully");
 
-      // Refresh the analysis
+      // Force refresh polling
       setTimeout(() => {
-        fetchAnalysis();
+        refetch();
       }, 1000);
     } catch (err: unknown) {
       const errorMessage =
@@ -107,7 +116,7 @@ export function UrlDetailPage() {
       setActionLoading({ ...actionLoading, delete: true });
       await urlsApi.deleteUrl(analysis.id);
       toast.success("URL deleted successfully");
-      navigate("/dashboard");
+      navigate("/urls");
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to delete URL";
@@ -116,28 +125,46 @@ export function UrlDetailPage() {
     }
   };
 
-  if (loading) {
+  // Show skeleton loader during initial load
+  if (pollingLoading && !analysis) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading analysis results..." />
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm p-6">
+          <div className="flex items-center space-x-4 mb-6">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/urls")}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to URL Management
+            </Button>
+            <div className="h-6 border-l border-gray-300"></div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              URL Analysis Details
+            </h1>
+          </div>
+          <UrlDetailSkeleton />
+        </div>
       </div>
     );
   }
 
-  if (error || !analysis) {
+  // Show error state
+  if (error || (!pollingLoading && !analysis)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-96 bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
             Error Loading Analysis
           </h2>
           <p className="text-gray-600 mb-6">{error || "Analysis not found"}</p>
           <div className="space-x-4">
-            <Button onClick={() => navigate("/dashboard")} variant="outline">
+            <Button onClick={() => navigate("/urls")} variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              Back to URL Management
             </Button>
-            <Button onClick={fetchAnalysis}>
+            <Button onClick={() => refetch()}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Retry
             </Button>
@@ -148,28 +175,34 @@ export function UrlDetailPage() {
   }
 
   const canStartAnalysis =
-    analysis.status === "pending" || analysis.status === "error";
-  const canStopAnalysis = analysis.status === "processing";
+    analysis?.status === "pending" || analysis?.status === "error";
+  const canStopAnalysis = analysis?.status === "processing";
+  const isProcessing = analysis?.status === "processing";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
+    <div className="space-y-6">
+      {/* Details Page Navigation with rounded corners */}
+      <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate("/urls")}
                 className="text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                Back to URL Management
               </Button>
               <div className="h-6 border-l border-gray-300"></div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                URL Analysis Details
-              </h1>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  URL Analysis Details
+                </h1>
+                {isProcessing && (
+                  <ProcessingIndicator url={analysis?.url} className="mt-1" />
+                )}
+              </div>
             </div>
 
             {/* Action Buttons */}
@@ -206,21 +239,20 @@ export function UrlDetailPage() {
               )}
 
               <Button
-                onClick={() => window.open(analysis.url, "_blank")}
+                onClick={() => window.open(analysis?.url, "_blank")}
                 variant="outline"
                 size="sm"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
-                Open URL
+                Visit Site
               </Button>
 
               <Button
                 onClick={handleDeleteUrl}
-                disabled={
-                  actionLoading.delete || analysis.status === "processing"
-                }
-                variant="destructive"
+                disabled={actionLoading.delete || isProcessing}
+                variant="outline"
                 size="sm"
+                className="text-red-600 hover:text-red-700"
               >
                 {actionLoading.delete ? (
                   <LoadingSpinner size="sm" />
@@ -235,20 +267,17 @@ export function UrlDetailPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <ErrorBoundary>
-          <div className="space-y-8">
-            {/* Analysis Overview */}
-            <AnalysisOverview analysis={analysis} />
-
-            {/* Internal vs External Links Chart */}
-            <LinksChart analysis={analysis} />
-
-            {/* Broken Links */}
-            <BrokenLinksTable analysis={analysis} />
-          </div>
-        </ErrorBoundary>
-      </div>
+      <ErrorBoundary>
+        <div className="space-y-6">
+          {analysis && (
+            <>
+              <AnalysisOverview analysis={analysis} />
+              <LinksChart analysis={analysis} />
+              <BrokenLinksTable analysis={analysis} />
+            </>
+          )}
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }

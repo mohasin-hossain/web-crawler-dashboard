@@ -3,6 +3,7 @@ package crawler
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -176,6 +177,8 @@ func (c *CrawlerService) IsRunning(urlID uint) bool {
 
 // crawlURL performs the actual crawling of a URL
 func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlResult {
+	log.Printf("[CRAWLER] Starting crawl for URL: %s", targetURL)
+	
 	result := &CrawlResult{
 		URL:           targetURL,
 		HeadingCounts: make(map[string]int),
@@ -185,6 +188,7 @@ func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlR
 	// Check context first
 	if ctx.Err() != nil {
 		result.Error = "Crawl was cancelled"
+		log.Printf("[CRAWLER] Crawl cancelled for URL: %s", targetURL)
 		return result
 	}
 
@@ -192,11 +196,13 @@ func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlR
 	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err != nil {
 		result.Error = fmt.Sprintf("Failed to create request: %v", err)
+		log.Printf("[CRAWLER] Failed to create request for URL %s: %v", targetURL, err)
 		return result
 	}
 
 	// Set user agent
 	req.Header.Set("User-Agent", c.config.UserAgent)
+	log.Printf("[CRAWLER] Making HTTP request to: %s", targetURL)
 
 	// Perform request with retries
 	var resp *http.Response
@@ -224,23 +230,29 @@ func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlR
 
 	if err != nil {
 		result.Error = fmt.Sprintf("Failed to fetch URL after %d attempts: %v", c.config.MaxRetries+1, err)
+		log.Printf("[CRAWLER] HTTP request failed for URL %s after %d attempts: %v", targetURL, c.config.MaxRetries+1, err)
 		return result
 	}
 
 	defer resp.Body.Close()
 	result.StatusCode = resp.StatusCode
+	log.Printf("[CRAWLER] HTTP response for URL %s: status=%d", targetURL, resp.StatusCode)
 
 	// Check if response is HTML
 	contentType := resp.Header.Get("Content-Type")
+	log.Printf("[CRAWLER] Content-Type for URL %s: %s", targetURL, contentType)
 	if !strings.Contains(strings.ToLower(contentType), "text/html") {
 		result.Error = fmt.Sprintf("URL does not return HTML content (Content-Type: %s)", contentType)
+		log.Printf("[CRAWLER] Invalid content type for URL %s: %s", targetURL, contentType)
 		return result
 	}
 
 	// Parse HTML content
+	log.Printf("[CRAWLER] Parsing HTML content for URL: %s", targetURL)
 	parseResult, err := ParseHTML(resp.Body, targetURL)
 	if err != nil {
 		result.Error = fmt.Sprintf("Failed to parse HTML: %v", err)
+		log.Printf("[CRAWLER] HTML parsing failed for URL %s: %v", targetURL, err)
 		return result
 	}
 
@@ -252,6 +264,9 @@ func (c *CrawlerService) crawlURL(ctx context.Context, targetURL string) *CrawlR
 	result.HasLoginForm = parseResult.HasLoginForm
 	result.InternalLinks = len(parseResult.InternalLinks)
 	result.ExternalLinks = len(parseResult.ExternalLinks)
+	
+	log.Printf("[CRAWLER] HTML parsed successfully for URL %s: title='%s', internal=%d, external=%d", 
+		targetURL, result.Title, result.InternalLinks, result.ExternalLinks)
 
 	// Perform advanced link analysis with broken link detection
 	allLinks := append(parseResult.InternalLinks, parseResult.ExternalLinks...)

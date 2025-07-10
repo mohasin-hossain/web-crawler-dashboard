@@ -187,4 +187,24 @@
   html {
     overflow-y: scroll;
   }
+
+  /* Prevent modal shake by preserving scrollbar space */
+  body[data-scroll-locked] {
+    overflow: hidden;
+    padding-right: var(--scrollbar-width, 0px);
+  }
+
+  /* Dialog/Modal specific styles to prevent shaking */
+  [data-radix-portal] {
+    /* Ensure portal content doesn't cause layout shifts */
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+  }
+
+  /* Prevent content shift when dialog opens */
+  [data-state="open"] {
+    animation-fill-mode: both;
+  }
 }

@@ -6,6 +6,7 @@ import { Layout } from "./components/layout/Layout";
 import { Toaster } from "./components/ui/sonner";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
+import { UrlDetailPage } from "./pages/UrlDetailPage";
 import { useAuth, useAuthActions } from "./stores/authStore";
 
 function App() {
@@ -47,6 +48,16 @@ function App() {
                 <Layout>
                   <DashboardPage />
                 </Layout>
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/urls/:id"
+            element={
+              isAuthenticated ? (
+                <UrlDetailPage />
               ) : (
                 <Navigate to="/login" replace />
               )

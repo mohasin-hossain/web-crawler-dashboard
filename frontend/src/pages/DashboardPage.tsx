@@ -7,6 +7,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { BulkActions } from "../components/dashboard/BulkActions";
 import { FilterBar } from "../components/dashboard/FilterBar";
@@ -18,6 +19,7 @@ import { useUrlStore } from "../stores/urlStore";
 import type { Url } from "../types/url";
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const { data: health, isLoading: healthLoading, isHealthy } = useHealth();
   const { user, isAuthenticated } = useAuth();
 
@@ -88,8 +90,7 @@ export function DashboardPage() {
   };
 
   const handleViewDetails = (url: Url) => {
-    // TODO: Navigate to URL detail page
-    console.log("View details for:", url);
+    navigate(`/urls/${url.id}`);
   };
 
   // Don't render anything if not authenticated (should be handled by App.tsx routing)

@@ -34,13 +34,20 @@ type CreateURLRequest struct {
 
 // URLResponse represents the API response for URL operations
 type URLResponse struct {
-	ID        uint                `json:"id"`
-	URL       string              `json:"url"`
-	Title     string              `json:"title"`
-	Status    models.URLStatus    `json:"status"`
-	CreatedAt time.Time           `json:"created_at"`
-	UpdatedAt time.Time           `json:"updated_at"`
-	Analysis  *models.AnalysisResult `json:"analysis,omitempty"`
+	ID            uint                   `json:"id"`
+	URL           string                 `json:"url"`
+	Title         string                 `json:"title"`
+	Status        models.URLStatus       `json:"status"`
+	InternalLinks int                    `json:"internal_links"`
+	ExternalLinks int                    `json:"external_links"`
+	BrokenLinks   int                    `json:"broken_links"`
+	HasLoginForm  bool                   `json:"has_login_form"`
+	HTMLVersion   string                 `json:"html_version"`
+	Headings      map[string]int         `json:"headings"`
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
+	AnalyzedAt    *time.Time             `json:"analyzed_at"`
+	Analysis      *models.AnalysisResult `json:"analysis,omitempty"`
 }
 
 // URLListResponse represents the paginated URL list response
@@ -136,11 +143,33 @@ func (h *URLHandler) GetURLs(c *gin.Context) {
 		limit = 10
 	}
 
-	// Use service layer to get URLs
-	urls, total, err := h.urlService.GetURLs(userID, page, limit, search, status)
-	if err != nil {
+	// Build query with preloaded analysis
+	query := h.db.Preload("Analysis").Where("user_id = ?", userID)
+
+	// Apply filters
+	if search != "" {
+		query = query.Where("url LIKE ? OR title LIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+	if status != "" && status != "all" {
+		query = query.Where("status = ?", status)
+	}
+
+	// Get total count
+	var total int64
+	if err := query.Model(&models.URL{}).Count(&total).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "service_error",
+			"error":   "database_error",
+			"message": "Failed to count URLs",
+		})
+		return
+	}
+
+	// Get URLs with pagination
+	var urls []models.URL
+	offset := (page - 1) * limit
+	if err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&urls).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "database_error",
 			"message": "Failed to retrieve URLs",
 		})
 		return
@@ -157,6 +186,36 @@ func (h *URLHandler) GetURLs(c *gin.Context) {
 			CreatedAt: url.CreatedAt,
 			UpdatedAt: url.UpdatedAt,
 		}
+
+		// Include analysis data if available
+		if url.Analysis != nil {
+			response.InternalLinks = url.Analysis.InternalLinks
+			response.ExternalLinks = url.Analysis.ExternalLinks
+			response.BrokenLinks = url.Analysis.BrokenLinks
+			response.HasLoginForm = url.Analysis.HasLoginForm
+			response.HTMLVersion = url.Analysis.HTMLVersion
+			response.AnalyzedAt = url.Analysis.AnalyzedAt
+			response.Headings = map[string]int{
+				"h1": url.Analysis.H1Count,
+				"h2": url.Analysis.H2Count,
+				"h3": url.Analysis.H3Count,
+				"h4": url.Analysis.H4Count,
+				"h5": url.Analysis.H5Count,
+				"h6": url.Analysis.H6Count,
+			}
+		} else {
+			// Default values when no analysis exists
+			response.InternalLinks = 0
+			response.ExternalLinks = 0
+			response.BrokenLinks = 0
+			response.HasLoginForm = false
+			response.HTMLVersion = ""
+			response.AnalyzedAt = nil
+			response.Headings = map[string]int{
+				"h1": 0, "h2": 0, "h3": 0, "h4": 0, "h5": 0, "h6": 0,
+			}
+		}
+
 		urlResponses = append(urlResponses, response)
 	}
 

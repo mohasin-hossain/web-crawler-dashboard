@@ -7,6 +7,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ExternalLink,
+  Eye,
   Globe,
   Play,
   Square,
@@ -405,6 +406,22 @@ export function UrlTable({
 
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end space-x-1">
+                    {/* View Details Button */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onViewDetails(url)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>View Details</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
                     {/* Start Analysis Button - always visible */}
                     <TooltipProvider>
                       <Tooltip>

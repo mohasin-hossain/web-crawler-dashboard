@@ -1,5 +1,5 @@
 import { Link as LinkIcon, Plus, XCircle } from "lucide-react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { BulkActions } from "../components/dashboard/BulkActions";
@@ -17,6 +17,34 @@ export function UrlManagementPage() {
 
   const urlStoreData = useUrlStore();
 
+  const addUrlInputRef = useRef<HTMLInputElement>(null);
+  const searchFocusRef = useRef<{ focus: () => void }>(null);
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Cmd+Shift+A or Ctrl+Shift+A for Add URL
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      addUrlInputRef.current?.focus();
+      return;
+    }
+    // / for Search (when not typing in an input/textarea)
+    if (
+      e.key === "/" &&
+      !(e.target instanceof HTMLInputElement) &&
+      !(e.target instanceof HTMLTextAreaElement)
+    ) {
+      e.preventDefault();
+      searchFocusRef.current?.focus();
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   // Safely extract data with proper null/undefined handling
   const urls = urlStoreData.urls || [];
   const pagination = urlStoreData.pagination;
@@ -30,6 +58,7 @@ export function UrlManagementPage() {
     fetchUrls,
     createUrl,
     setFilters,
+    applyFilters,
     resetFilters,
     setPage,
     selectUrl,
@@ -47,7 +76,6 @@ export function UrlManagementPage() {
   const {
     urls: polledUrls,
     isLoading: pollingLoading,
-    hasProcessingUrls,
     refetch: refetchPolling,
   } = useUrlPolling({
     enabled: isAuthenticated && !!user,
@@ -129,7 +157,7 @@ export function UrlManagementPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -150,52 +178,55 @@ export function UrlManagementPage() {
 
       {/* URL Management */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-        <div className="p-6">
+        <div className="p-3 sm:p-6">
           {/* Add New URL Section */}
-          <div className="mb-8">
-            <div className="flex items-center mb-1">
-              <Plus className="w-6 h-6 text-blue-600 mr-3" />
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="mb-4 sm:mb-8">
+            <div className="flex items-center mb-0.5 sm:mb-1">
+              <Plus className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600 mr-1.5 sm:mr-3" />
+              <h2 className="text-base sm:text-2xl font-bold text-gray-900 dark:text-white">
                 Add New URL
               </h2>
             </div>
-            <p className="ml-9 text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
+            <p className="ml-6 sm:ml-9 text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 mb-2 sm:mb-4">
               Enter a website URL to analyze its structure, links, and
               performance
             </p>
             <QuickAddUrlForm
+              ref={addUrlInputRef}
               onSubmit={handleCreateUrl}
               loading={loadingStates?.create || false}
+              className="[&>div]:space-y-2 sm:[&>div]:space-y-0"
             />
           </div>
 
           {/* Divider */}
-          <div className="border-t border-gray-200 dark:border-gray-700 mb-8"></div>
+          <div className="border-t border-gray-200 dark:border-gray-700 mb-4 sm:mb-8"></div>
 
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-2 sm:mb-6">
             <div>
-              <div className="flex items-center mb-1">
-                <LinkIcon className="w-6 h-6 text-blue-600 mr-3" />
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="flex items-center mb-0.5 sm:mb-1">
+                <LinkIcon className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600 mr-1.5 sm:mr-3" />
+                <h2 className="text-base sm:text-2xl font-bold text-gray-900 dark:text-white">
                   URL Management
                 </h2>
               </div>
-              <p className="ml-9 text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="ml-6 sm:ml-9 text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
                 Analyze and manage your website URLs
               </p>
             </div>
           </div>
 
           {/* Filter Bar */}
-          {filters && pagination && (
-            <FilterBar
-              filters={filters}
-              onFiltersChange={setFilters}
-              onResetFilters={resetFilters}
-              totalUrls={pagination.total || 0}
-              loading={loadingStates?.list || pollingLoading}
-            />
-          )}
+          <FilterBar
+            focusSearchRef={searchFocusRef}
+            filters={
+              filters || { search: "", status: "all", page: 1, limit: 10 }
+            }
+            onFiltersChange={applyFilters}
+            onResetFilters={resetFilters}
+            totalUrls={pagination?.total || 0}
+            loading={loadingStates?.list || pollingLoading}
+          />
 
           {/* Bulk Actions */}
           {selectedUrls.size > 0 && (
@@ -213,7 +244,7 @@ export function UrlManagementPage() {
           )}
 
           {/* URL Table */}
-          <div className="mt-6">
+          <div className="mt-4 sm:mt-6">
             {loadingStates?.list && urls.length === 0 ? (
               <div className="flex justify-center py-8">
                 <LoadingSpinner />

@@ -32,7 +32,8 @@ function App() {
     checkAuth();
   }, [checkAuth]);
 
-  // Show loading spinner while checking authentication
+  // Show loading spinner while checking authentication on app startup
+  // This only shows when the app is initializing, not during form submissions
   if (isLoading || !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">

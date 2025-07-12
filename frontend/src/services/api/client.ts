@@ -1,7 +1,15 @@
-import type { AxiosError, AxiosInstance } from "axios";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
-// Token management to prevent race conditions
+// Create the axios instance with configuration
+export const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080",
+  timeout: 10000, // 10 second timeout
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Token refresh queue
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value: any) => void;
@@ -20,26 +28,16 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Create axios instance with base configuration
-const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080",
-  timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Request interceptor for adding auth token
+// Request interceptor to add auth token
 apiClient.interceptors.request.use(
-  (config) => {
-    // Add auth token if available
+  (config: any) => {
     const token = localStorage.getItem("auth_token");
-    if (token) {
+    if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
+  (error: AxiosError) => {
     return Promise.reject(error);
   }
 );
@@ -50,10 +48,23 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
+    console.log(
+      "API Client: Error interceptor triggered",
+      error.response?.status,
+      error.response?.data
+    );
+
     const originalRequest = error.config as any;
 
     // Handle 401 Unauthorized responses
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Don't attempt token refresh for authentication endpoints
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes("/auth/login") &&
+      !originalRequest.url?.includes("/auth/register")
+    ) {
+      console.log("API Client: Handling 401 error for protected endpoint");
       // If we're already refreshing, queue this request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -103,29 +114,97 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Handle other error scenarios
-    if (error.response?.status === 403) {
-      // Forbidden - show error message but don't redirect
-      console.error("Access forbidden - insufficient permissions");
-    } else if (error.response && error.response.status >= 500) {
-      // Server errors
-      console.error("Server error:", error.response.status);
-    } else if (error.code === "ECONNABORTED") {
-      // Timeout
-      console.error("Request timeout - please check your connection");
-    } else if (!error.response) {
-      // Network error
-      console.error("Network error - please check your connection");
+    // For authentication endpoints (login/register), just pass through the error
+    if (
+      originalRequest.url?.includes("/auth/login") ||
+      originalRequest.url?.includes("/auth/register")
+    ) {
+      console.log("API Client: Authentication endpoint error, passing through");
     }
 
-    return Promise.reject(error);
+    // Handle specific error responses with user-friendly messages
+    if (error.response?.data) {
+      console.log("API Client: Processing error response data");
+      const errorData = error.response.data as {
+        message?: string;
+        error?: string;
+      };
+
+      // Create a new error with the backend message
+      const enhancedError = new Error(
+        errorData.message || errorData.error || "An error occurred"
+      );
+      enhancedError.name = error.name;
+      (enhancedError as any).response = error.response;
+      (enhancedError as any).config = error.config;
+
+      console.log("API Client: Enhanced error created:", enhancedError.message);
+      return Promise.reject(enhancedError);
+    }
+
+    // Handle network and timeout errors
+    if (error.code === "ECONNABORTED") {
+      console.log("API Client: Timeout error");
+      const timeoutError = new Error(
+        "Request timeout - please check your connection and try again"
+      );
+      timeoutError.name = "TimeoutError";
+      return Promise.reject(timeoutError);
+    }
+
+    if (!error.response) {
+      console.log("API Client: Network error");
+      const networkError = new Error(
+        "Network error - please check your connection and try again"
+      );
+      networkError.name = "NetworkError";
+      return Promise.reject(networkError);
+    }
+
+    // Handle other HTTP errors
+    const statusCode = error.response?.status;
+    let errorMessage = "An unexpected error occurred";
+
+    switch (statusCode) {
+      case 400:
+        errorMessage = "Bad request - please check your input";
+        break;
+      case 403:
+        errorMessage = "Access forbidden - insufficient permissions";
+        break;
+      case 404:
+        errorMessage = "Resource not found";
+        break;
+      case 409:
+        errorMessage = "Conflict - resource already exists";
+        break;
+      case 429:
+        errorMessage = "Too many requests - please try again later";
+        break;
+      case 500:
+        errorMessage = "Server error - please try again later";
+        break;
+      case 502:
+        errorMessage = "Bad gateway - service temporarily unavailable";
+        break;
+      case 503:
+        errorMessage = "Service unavailable - please try again later";
+        break;
+      default:
+        errorMessage = `Server error (${statusCode}) - please try again`;
+    }
+
+    console.log("API Client: HTTP error:", statusCode, errorMessage);
+    const httpError = new Error(errorMessage);
+    httpError.name = "HttpError";
+    (httpError as any).response = error.response;
+    (httpError as any).config = error.config;
+
+    return Promise.reject(httpError);
   }
 );
 
-export default apiClient;
-export { apiClient };
-
-// Helper function to handle API errors
+// Helper function to handle API errors (kept for backward compatibility)
 export const handleApiError = (error: AxiosError) => {
   if (error.response?.data) {
     const errorData = error.response.data as {

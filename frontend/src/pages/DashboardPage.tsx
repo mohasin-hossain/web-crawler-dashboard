@@ -130,46 +130,53 @@ export function DashboardPage() {
       )}
 
       {/* System Status - Top Priority */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Activity className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200/50 dark:border-gray-700/50 p-4 sm:p-6 shadow-sm">
+        {/* Mobile: stacked, md+: horizontal */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
+          {/* Icon + Title */}
+          <div className="flex items-center space-x-2 md:space-x-3 mb-2 md:mb-0">
+            <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-400" />
+            <h2 className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white">
               System Status
             </h2>
           </div>
 
-          <div className="flex items-center space-x-6 text-sm">
+          {/* Statuses */}
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-6 gap-2 md:gap-0 text-sm">
             {healthLoading ? (
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-gray-400 rounded-full animate-pulse"></div>
-                <span className="text-gray-500 dark:text-gray-400">
+                <span className="text-gray-400 dark:text-gray-500 text-xs">
                   Checking...
                 </span>
               </div>
             ) : (
               <>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800">
                   <div
-                    className={`w-3 h-3 rounded-full ${
+                    className={`w-2.5 h-2.5 rounded-full ${
                       isHealthy ? "bg-green-400" : "bg-red-400"
                     }`}
                   ></div>
-                  <span className="text-gray-600 dark:text-gray-400">
-                    Backend: {isHealthy ? "Healthy" : "Error"}
+                  <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
+                    Backend:
+                  </span>
+                  <span className="text-gray-600 dark:text-gray-400 text-xs font-normal">
+                    {isHealthy ? "Healthy" : "Error"}
                   </span>
                 </div>
-
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800">
                   <div
-                    className={`w-3 h-3 rounded-full ${
+                    className={`w-2.5 h-2.5 rounded-full ${
                       health?.database === "connected"
                         ? "bg-green-400"
                         : "bg-red-400"
                     }`}
                   ></div>
-                  <span className="text-gray-600 dark:text-gray-400">
-                    Database:{" "}
+                  <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
+                    Database:
+                  </span>
+                  <span className="text-gray-600 dark:text-gray-400 text-xs font-normal">
                     {health?.database === "connected" ? "Connected" : "Error"}
                   </span>
                 </div>

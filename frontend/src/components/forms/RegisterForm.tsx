@@ -1,8 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useAuthActions } from "../../stores/authStore";
+import { useAuth, useAuthActions } from "../../stores/authStore";
 import type { RegisterRequest } from "../../types/auth";
 import { Button } from "../ui/button";
 import {
@@ -23,6 +23,7 @@ const registerSchema = z
       .email("Please enter a valid email address"),
     password: z
       .string()
+      .min(1, "Password is required")
       .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
       .regex(/[a-z]/, "Password must contain at least one lowercase letter")
@@ -46,8 +47,8 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuthActions();
+  const { isSubmitting, error } = useAuth();
+  const { register, clearError } = useAuthActions();
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -58,9 +59,20 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
     },
   });
 
+  // Clear auth errors when component mounts or form values change
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  // Clear auth errors when form values change
+  useEffect(() => {
+    if (error) {
+      clearError();
+    }
+  }, [form.watch(), clearError, error]);
+
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      setIsLoading(true);
       const registerData: RegisterRequest = {
         email: data.email,
         password: data.password,
@@ -71,16 +83,9 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
       // If we get here, registration was successful
       onSuccess?.();
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message || error.message || "Registration failed";
-      onError?.(errorMessage);
-
-      // Set form error
-      form.setError("root", {
-        message: errorMessage,
-      });
-    } finally {
-      setIsLoading(false);
+      // Error is now handled in the auth store
+      // Just call the onError callback if provided
+      onError?.(error.message || "Registration failed");
     }
   };
 
@@ -89,7 +94,7 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-bold">Create Account</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          Enter your information to create a new account
+          Enter your details to create a new account
         </p>
       </div>
 
@@ -106,7 +111,7 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
                     type="email"
                     placeholder="Enter your email"
                     {...field}
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                   />
                 </FormControl>
                 <FormMessage />
@@ -123,9 +128,9 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
                 <FormControl>
                   <Input
                     type="password"
-                    placeholder="Create a strong password"
+                    placeholder="Enter your password"
                     {...field}
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                   />
                 </FormControl>
                 <FormMessage />
@@ -144,7 +149,7 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
                     type="password"
                     placeholder="Confirm your password"
                     {...field}
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                   />
                 </FormControl>
                 <FormMessage />
@@ -152,9 +157,9 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
             )}
           />
 
-          {form.formState.errors.root && (
-            <div className="text-sm text-red-500 text-center">
-              {form.formState.errors.root.message}
+          {(error || form.formState.errors.root) && (
+            <div className="text-sm text-red-500 text-center bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-200 dark:border-red-800">
+              {error || form.formState.errors.root?.message}
             </div>
           )}
 
@@ -169,12 +174,18 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
             </ul>
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Creating account..." : "Create Account"}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Creating account...
+              </div>
+            ) : (
+              "Create Account"
+            )}
           </Button>
         </form>
       </Form>
-
     </div>
   );
 }

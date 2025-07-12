@@ -6,12 +6,13 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Eye,
   Globe,
 } from "lucide-react";
 import { useState } from "react";
 import { urlsApi } from "../../services/api/urls";
 import type { Url, UrlTableFilters } from "../../types/url";
-import { ProcessingIndicator, TableSkeleton } from "../common";
+import { TableSkeleton } from "../common";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import {
@@ -152,17 +153,18 @@ export function UrlTable({
     const { page, totalPages } = pagination;
 
     return (
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="text-sm text-gray-500 text-center sm:text-left">
           Showing {safeUrls.length} of {pagination.total || 0} URLs
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => onPageChange(1)}
             disabled={page === 1 || loading}
+            className="hidden sm:flex"
           >
             <ChevronsLeft className="h-4 w-4" />
           </Button>
@@ -176,8 +178,8 @@ export function UrlTable({
             <ChevronLeft className="h-4 w-4" />
           </Button>
 
-          <span className="text-sm">
-            Page {page} of {totalPages}
+          <span className="text-sm px-2">
+            {page} / {totalPages}
           </span>
 
           <Button
@@ -194,6 +196,7 @@ export function UrlTable({
             size="sm"
             onClick={() => onPageChange(totalPages)}
             disabled={page === totalPages || loading}
+            className="hidden sm:flex"
           >
             <ChevronsRight className="h-4 w-4" />
           </Button>
@@ -225,193 +228,298 @@ export function UrlTable({
   return (
     <div className="space-y-4">
       {/* Show loading overlay when refreshing existing data */}
-      {loading && safeUrls.length > 0 && (
+      {/* Removed ProcessingIndicator overlay as per user request */}
+      {/* {loading && safeUrls.length > 0 && (
         <div className="relative">
           <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 rounded-lg flex items-center justify-center">
             <ProcessingIndicator url="Refreshing URLs..." />
           </div>
         </div>
-      )}
+      )} */}
 
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">
+      {/* Mobile Card View */}
+      <div className="block lg:hidden space-y-4">
+        {sortedUrls.map((url) => (
+          <div
+            key={url.id}
+            className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 shadow-sm flex flex-col gap-2 transition hover:shadow-md cursor-pointer"
+            onClick={(e) => handleRowClick(url, e)}
+          >
+            {/* Header: Status, Date, Checkbox, Eye, HTML Version */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <Checkbox
-                  checked={isAllSelected}
-                  ref={(el) => {
-                    if (el) {
-                      const checkbox = el.querySelector(
-                        'input[type="checkbox"]'
-                      ) as HTMLInputElement;
-                      if (checkbox)
-                        checkbox.indeterminate = isPartiallySelected;
+                  checked={selectedUrls.has(url.id)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      onUrlSelect(url.id);
+                    } else {
+                      onUrlDeselect(url.id);
                     }
                   }}
-                  onCheckedChange={handleSelectAll}
-                  aria-label="Select all URLs"
+                  aria-label={`Select ${url.url}`}
+                  className="h-4 w-4 mr-1"
+                  onClick={(e) => e.stopPropagation()}
                 />
-              </TableHead>
-
-              <TableHead>
+                <StatusBadge
+                  status={url.status}
+                  className="text-xs px-2 py-0.5 rounded-full"
+                />
+                <span className="text-xs text-gray-400 ml-1 truncate">
+                  {formatDate(url.created_at)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {url.html_version && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-900 text-gray-500 font-mono border border-gray-200 dark:border-gray-700 mr-1">
+                    {url.html_version}
+                  </span>
+                )}
                 <Button
                   variant="ghost"
-                  onClick={() => handleSort("url")}
-                  className="h-auto p-0 font-semibold"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewDetails(url);
+                  }}
+                  className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600"
                 >
-                  URL {getSortIcon("url")}
+                  <Eye className="h-4 w-4" />
                 </Button>
-              </TableHead>
+              </div>
+            </div>
 
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("title")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Title {getSortIcon("title")}
-                </Button>
-              </TableHead>
-
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("html_version")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  HTML Version {getSortIcon("html_version")}
-                </Button>
-              </TableHead>
-
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("status")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Status {getSortIcon("status")}
-                </Button>
-              </TableHead>
-
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("internal_links")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Internal {getSortIcon("internal_links")}
-                </Button>
-              </TableHead>
-
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("external_links")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  External {getSortIcon("external_links")}
-                </Button>
-              </TableHead>
-
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("broken_links")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Broken {getSortIcon("broken_links")}
-                </Button>
-              </TableHead>
-
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("created_at")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Created {getSortIcon("created_at")}
-                </Button>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {sortedUrls.map((url) => (
-              <TableRow
-                key={url.id}
-                className="hover:bg-gray-50 cursor-pointer"
-                onClick={(e) => handleRowClick(url, e)}
+            {/* URL & Title */}
+            <div className="flex flex-col min-w-0">
+              <span
+                className="font-semibold text-blue-700 dark:text-blue-400 text-sm truncate"
+                title={url.url}
               >
-                <TableCell onClick={(e) => e.stopPropagation()}>
+                {formatUrl(url.url)}
+              </span>
+              {url.title && (
+                <span
+                  className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5"
+                  title={url.title}
+                >
+                  {url.title}
+                </span>
+              )}
+            </div>
+
+            {/* Stats Row */}
+            <div className="flex justify-between items-center text-center mt-1 mb-1 divide-x divide-gray-200 dark:divide-gray-700 bg-gray-50 dark:bg-gray-900 rounded-md">
+              <div className="flex-1 px-1">
+                <div className="text-base font-semibold text-gray-900 dark:text-white">
+                  {url.internal_links}
+                </div>
+                <div className="text-[11px] text-gray-400">Internal</div>
+              </div>
+              <div className="flex-1 px-1">
+                <div className="text-base font-semibold text-gray-900 dark:text-white">
+                  {url.external_links}
+                </div>
+                <div className="text-[11px] text-gray-400">External</div>
+              </div>
+              <div className="flex-1 px-1">
+                <div
+                  className={`text-base font-semibold ${
+                    url.broken_links > 0
+                      ? "text-red-600"
+                      : "text-gray-900 dark:text-white"
+                  }`}
+                >
+                  {url.broken_links}
+                </div>
+                <div className="text-[11px] text-gray-400">Broken</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden lg:block border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedUrls.has(url.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        onUrlSelect(url.id);
-                      } else {
-                        onUrlDeselect(url.id);
+                    checked={isAllSelected}
+                    ref={(el) => {
+                      if (el) {
+                        const checkbox = el.querySelector(
+                          'input[type="checkbox"]'
+                        ) as HTMLInputElement;
+                        if (checkbox)
+                          checkbox.indeterminate = isPartiallySelected;
                       }
                     }}
-                    aria-label={`Select ${url.url}`}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all URLs"
                   />
-                </TableCell>
+                </TableHead>
 
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <div
-                      className="max-w-[200px] truncate text-blue-600 hover:text-blue-800"
-                      title={url.url}
-                    >
-                      {formatUrl(url.url)}
-                    </div>
-                  </div>
-                </TableCell>
-
-                <TableCell>
-                  <span
-                    className="max-w-[150px] truncate block"
-                    title={url.title || "No title"}
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("url")}
+                    className="h-auto p-0 font-semibold"
                   >
-                    {url.title || "No title"}
-                  </span>
-                </TableCell>
+                    URL {getSortIcon("url")}
+                  </Button>
+                </TableHead>
 
-                <TableCell>
-                  <span className="text-sm text-gray-600">
-                    {url.html_version || "—"}
-                  </span>
-                </TableCell>
-
-                <TableCell>
-                  <StatusBadge status={url.status} />
-                </TableCell>
-
-                <TableCell className="text-center">
-                  {url.internal_links}
-                </TableCell>
-                <TableCell className="text-center">
-                  {url.external_links}
-                </TableCell>
-                <TableCell className="text-center">
-                  <span
-                    className={
-                      url.broken_links > 0 ? "text-red-600 font-medium" : ""
-                    }
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("title")}
+                    className="h-auto p-0 font-semibold"
                   >
-                    {url.broken_links}
-                  </span>
-                </TableCell>
+                    Title {getSortIcon("title")}
+                  </Button>
+                </TableHead>
 
-                <TableCell>
-                  <span className="text-sm text-gray-500">
-                    {formatDate(url.created_at)}
-                  </span>
-                </TableCell>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("html_version")}
+                    className="h-auto p-0 font-semibold"
+                  >
+                    HTML Version {getSortIcon("html_version")}
+                  </Button>
+                </TableHead>
+
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("status")}
+                    className="h-auto p-0 font-semibold"
+                  >
+                    Status {getSortIcon("status")}
+                  </Button>
+                </TableHead>
+
+                <TableHead className="text-center">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("internal_links")}
+                    className="h-auto p-0 font-semibold"
+                  >
+                    Internal {getSortIcon("internal_links")}
+                  </Button>
+                </TableHead>
+
+                <TableHead className="text-center">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("external_links")}
+                    className="h-auto p-0 font-semibold"
+                  >
+                    External {getSortIcon("external_links")}
+                  </Button>
+                </TableHead>
+
+                <TableHead className="text-center">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("broken_links")}
+                    className="h-auto p-0 font-semibold"
+                  >
+                    Broken {getSortIcon("broken_links")}
+                  </Button>
+                </TableHead>
+
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("created_at")}
+                    className="h-auto p-0 font-semibold"
+                  >
+                    Created {getSortIcon("created_at")}
+                  </Button>
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+
+            <TableBody>
+              {sortedUrls.map((url) => (
+                <TableRow
+                  key={url.id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => handleRowClick(url, e)}
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedUrls.has(url.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          onUrlSelect(url.id);
+                        } else {
+                          onUrlDeselect(url.id);
+                        }
+                      }}
+                      aria-label={`Select ${url.url}`}
+                    />
+                  </TableCell>
+
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="max-w-[200px] truncate text-blue-600 hover:text-blue-800"
+                        title={url.url}
+                      >
+                        {formatUrl(url.url)}
+                      </div>
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
+                    <span
+                      className="max-w-[150px] truncate block"
+                      title={url.title || "No title"}
+                    >
+                      {url.title || "No title"}
+                    </span>
+                  </TableCell>
+
+                  <TableCell>
+                    <span className="text-sm text-gray-600">
+                      {url.html_version || "—"}
+                    </span>
+                  </TableCell>
+
+                  <TableCell>
+                    <StatusBadge status={url.status} />
+                  </TableCell>
+
+                  <TableCell className="text-center">
+                    {url.internal_links}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {url.external_links}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span
+                      className={
+                        url.broken_links > 0 ? "text-red-600 font-medium" : ""
+                      }
+                    >
+                      {url.broken_links}
+                    </span>
+                  </TableCell>
+
+                  <TableCell>
+                    <span className="text-sm text-gray-500">
+                      {formatDate(url.created_at)}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {pagination && pagination.totalPages > 1 && renderPagination()}

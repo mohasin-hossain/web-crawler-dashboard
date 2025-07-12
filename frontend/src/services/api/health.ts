@@ -1,4 +1,4 @@
-import apiClient, { handleApiError } from "./client";
+import { apiClient, handleApiError } from "./client";
 
 export interface HealthCheckResponse {
   status: string;

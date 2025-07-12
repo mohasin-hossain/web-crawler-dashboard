@@ -22,7 +22,7 @@ export function Layout({ children }: LayoutProps) {
           sidebarCollapsed ? "pl-16" : "pl-64"
         }`}
       >
-        <div className="p-8">{children}</div>
+        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   );

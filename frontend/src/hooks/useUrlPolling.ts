@@ -1,7 +1,6 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { urlsApi } from "../services/api/urls";
-import type { AnalysisResult, Url, UrlsQueryParams } from "../types/url";
+import type { Url, UrlsQueryParams } from "../types/url";
 
 interface UseUrlPollingOptions {
   enabled?: boolean;
@@ -9,82 +8,47 @@ interface UseUrlPollingOptions {
   queryParams?: UrlsQueryParams;
 }
 
-interface PollingResult {
+interface UseUrlPollingResult {
   urls: Url[];
   isLoading: boolean;
-  error: Error | null;
-  refetch: () => void;
   hasProcessingUrls: boolean;
+  refetch: () => void;
 }
 
-export function useUrlPolling(
-  options: UseUrlPollingOptions = {}
-): PollingResult {
-  const {
-    enabled = true,
-    pollingInterval = 1000, // 1 second default
-    queryParams = {},
-  } = options;
+export function useUrlPolling({
+  enabled = true,
+  pollingInterval = 2000,
+  queryParams = {},
+}: UseUrlPollingOptions): UseUrlPollingResult {
+  const queryKey = ["urls", "polling", queryParams];
 
-  const queryClient = useQueryClient();
-  const previousProcessingUrls = useRef<Set<number>>(new Set());
-  const previousUrlStates = useRef<Map<number, string>>(new Map());
-
-  // Query for URLs with polling enabled when there are processing URLs
   const {
     data: urlsResponse,
     isLoading,
-    error,
     refetch,
   } = useQuery({
-    queryKey: ["urls", queryParams],
+    queryKey,
     queryFn: () => urlsApi.getUrls(queryParams),
     enabled,
-    refetchInterval: (data) => {
-      // Always poll at the specified interval
-      return pollingInterval;
-    },
-    refetchOnWindowFocus: true,
-    staleTime: 0, // Consider data always stale
-    cacheTime: 0, // Disable caching
-    notifyOnChangeProps: ["data", "error"], // Only trigger re-render on data/error changes
+    refetchInterval: pollingInterval,
+    gcTime: 0, // Disable caching
+    staleTime: 0, // Always consider data stale
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const urls: Url[] = urlsResponse?.urls || [];
+
+  // Check if there are any processing URLs
   const hasProcessingUrls = urls.some(
-    (url: Url) =>
-      url.status?.toLowerCase() === "processing" ||
-      url.status?.toLowerCase() === "queued"
+    (url) => url.status?.toLowerCase() === "processing"
   );
-
-  // Handle status change notifications and cache invalidation
-  useEffect(() => {
-    if (!urls.length) return;
-
-    const currentUrlStates = new Map(
-      urls.map((url) => [url.id, url.status?.toLowerCase() || ""])
-    );
-
-    urls.forEach((url) => {
-      const prevStatus = previousUrlStates.current.get(url.id);
-      const currentStatus = url.status?.toLowerCase();
-
-      if (prevStatus && prevStatus !== currentStatus) {
-        // Status has changed, invalidate cache
-        queryClient.invalidateQueries({ queryKey: ["urls"] });
-        queryClient.invalidateQueries({ queryKey: ["urlResult", url.id] });
-      }
-    });
-
-    previousUrlStates.current = currentUrlStates;
-  }, [urls, queryClient]);
 
   return {
     urls,
     isLoading,
-    error: error as Error | null,
-    refetch,
     hasProcessingUrls,
+    refetch,
   };
 }
 

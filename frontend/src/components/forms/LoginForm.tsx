@@ -1,8 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useAuthActions } from "../../stores/authStore";
+import { useAuth, useAuthActions } from "../../stores/authStore";
 import type { LoginRequest } from "../../types/auth";
 import { Button } from "../ui/button";
 import {
@@ -34,8 +34,8 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, onError }: LoginFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuthActions();
+  const { isSubmitting, error } = useAuth();
+  const { login, clearError } = useAuthActions();
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -45,29 +45,37 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
     },
   });
 
+  // Clear auth errors when component mounts
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  // Clear auth errors when form values change
+  useEffect(() => {
+    if (error) {
+      clearError();
+    }
+  }, [form.watch(), clearError, error]);
+
   const onSubmit = async (data: LoginFormData) => {
     try {
-      setIsLoading(true);
+      console.log("Login attempt started");
       const loginData: LoginRequest = {
         email: data.email,
         password: data.password,
       };
 
       await login(loginData);
+      console.log("Login successful");
 
       // If we get here, login was successful
       onSuccess?.();
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message || error.message || "Login failed";
-      onError?.(errorMessage);
-
-      // Set form error
-      form.setError("root", {
-        message: errorMessage,
-      });
-    } finally {
-      setIsLoading(false);
+      console.error("Login error caught in form:", error);
+      // Error is already handled in the auth store
+      // The isSubmitting state should be reset there
+      // Just call the onError callback if provided
+      onError?.(error.message || "Login failed");
     }
   };
 
@@ -93,7 +101,7 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
                     type="email"
                     placeholder="Enter your email"
                     {...field}
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                   />
                 </FormControl>
                 <FormMessage />
@@ -112,7 +120,7 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
                     type="password"
                     placeholder="Enter your password"
                     {...field}
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                   />
                 </FormControl>
                 <FormMessage />
@@ -120,14 +128,21 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
             )}
           />
 
-          {form.formState.errors.root && (
-            <div className="text-sm text-red-500 text-center">
-              {form.formState.errors.root.message}
+          {(error || form.formState.errors.root) && (
+            <div className="text-sm text-red-500 text-center bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-200 dark:border-red-800">
+              {error || form.formState.errors.root?.message}
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing in..." : "Sign In"}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Signing in...
+              </div>
+            ) : (
+              "Sign In"
+            )}
           </Button>
         </form>
       </Form>

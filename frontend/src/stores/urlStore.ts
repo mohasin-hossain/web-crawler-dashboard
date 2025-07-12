@@ -104,6 +104,7 @@ interface UrlActions {
 
   // UI actions
   setFilters: (filters: Partial<UrlTableFilters>) => void;
+  applyFilters: (filters: Partial<UrlTableFilters>) => void;
   setPage: (page: number) => void;
   setSearch: (search: string) => void;
   resetFilters: () => void;
@@ -453,24 +454,30 @@ export const useUrlStore = create<UrlStore>()(
         }
       },
 
-      // Set filters
+      // Set filters without auto-fetching
       setFilters: (newFilters: Partial<UrlTableFilters>) => {
         const state = get();
         const updatedFilters = { ...state.filters, ...newFilters };
         set({ filters: updatedFilters });
+      },
 
-        // Auto-fetch when filters change
+      // Apply filters and fetch data
+      applyFilters: (newFilters: Partial<UrlTableFilters>) => {
+        const state = get();
+        const updatedFilters = { ...state.filters, ...newFilters };
+        set({ filters: updatedFilters });
+        // Auto-fetch when filters are applied
         get().fetchUrls();
       },
 
       // Set page
       setPage: (page: number) => {
-        get().setFilters({ page });
+        get().applyFilters({ page });
       },
 
       // Set search
       setSearch: (search: string) => {
-        get().setFilters({ search, page: 1 }); // Reset to first page when searching
+        get().applyFilters({ search, page: 1 }); // Reset to first page when searching
       },
 
       // Reset filters
@@ -602,12 +609,28 @@ export const useUrlStore = create<UrlStore>()(
         // Create a map of current URLs for quick lookup
         const currentUrlsMap = new Map(state.urls.map((url) => [url.id, url]));
 
+        // Check if there are any actual changes before updating
+        let hasChanges = false;
+        let statusChanged = false;
+
         // Update existing URLs with polled data while preserving order
         const updatedUrls = state.urls.map((storeUrl) => {
           const polledUrl = polledUrls.find((url) => url.id === storeUrl.id);
           if (polledUrl) {
-            // Check if status has changed
-            const statusChanged = storeUrl.status !== polledUrl.status;
+            // Check if there are any meaningful changes
+            const urlStatusChanged = storeUrl.status !== polledUrl.status;
+            const urlUpdated =
+              storeUrl.status !== polledUrl.status ||
+              storeUrl.updated_at !== polledUrl.updated_at ||
+              storeUrl.created_at !== polledUrl.created_at;
+
+            if (urlUpdated) {
+              hasChanges = true;
+              if (urlStatusChanged) {
+                statusChanged = true;
+              }
+            }
+
             const newUrl = {
               ...storeUrl,
               ...polledUrl,
@@ -615,31 +638,33 @@ export const useUrlStore = create<UrlStore>()(
               selected: storeUrl.selected,
             };
 
-            // Show toast notification if status changed to completed or error
-            if (statusChanged) {
-              if (polledUrl.status === "completed") {
-                toast.success(
-                  `Analysis completed for: ${truncateUrl(polledUrl.url)}`
-                );
-              } else if (polledUrl.status === "error") {
-                toast.error(
-                  `Analysis failed for: ${truncateUrl(polledUrl.url)}`
-                );
-              }
-            }
-
             return newUrl;
           }
           return storeUrl;
         });
 
         // Only update state if there are actual changes
-        const hasChanges =
-          JSON.stringify(updatedUrls) !== JSON.stringify(state.urls);
         if (hasChanges) {
           set({ urls: updatedUrls });
-          // Recalculate stats since we have new data
-          get().calculateStats();
+
+          // Show toast notifications for status changes
+          if (statusChanged) {
+            updatedUrls.forEach((url) => {
+              const originalUrl = currentUrlsMap.get(url.id);
+              if (originalUrl && originalUrl.status !== url.status) {
+                if (url.status === "completed") {
+                  toast.success(
+                    `Analysis completed for: ${truncateUrl(url.url)}`
+                  );
+                } else if (url.status === "error") {
+                  toast.error(`Analysis failed for: ${truncateUrl(url.url)}`);
+                }
+              }
+            });
+
+            // Recalculate stats since we have new data
+            get().calculateStats();
+          }
         }
       },
     }),

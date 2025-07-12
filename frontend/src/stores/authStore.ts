@@ -25,42 +25,76 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      isLoading: true, // Start with loading true
+      isLoading: false, // App-level loading (for checking auth on startup)
+      isSubmitting: false, // Form-level loading (for login/register operations)
       error: null,
       isInitialized: false,
 
       // Actions
       login: async (data: LoginRequest) => {
         try {
-          set({ isLoading: true, error: null });
+          console.log("Auth store: Starting login");
+          set({ isSubmitting: true, error: null });
 
           const response = await authApi.login(data);
+          console.log("Auth store: Login API call successful");
 
           // Update state with new auth data
           set({
             user: response.user,
             token: response.token,
             isAuthenticated: true,
-            isLoading: false,
+            isSubmitting: false,
             error: null,
+            isInitialized: true,
           });
+          console.log("Auth store: Login state updated successfully");
         } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message || error.message || "Login failed";
+          console.error("Auth store: Login error caught:", error);
+          let errorMessage = "Login failed";
+
+          // Handle specific error responses from backend
+          if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.response?.data?.error) {
+            errorMessage = error.response.data.error;
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+
+          // Map generic errors to user-friendly messages
+          if (errorMessage.includes("Invalid email or password")) {
+            errorMessage =
+              "Invalid email or password. Please check your credentials and try again.";
+          } else if (errorMessage.includes("Authentication failed")) {
+            errorMessage =
+              "Authentication failed. Please check your credentials.";
+          } else if (errorMessage.includes("Network Error")) {
+            errorMessage =
+              "Network error. Please check your connection and try again.";
+          } else if (errorMessage.includes("timeout")) {
+            errorMessage = "Request timeout. Please try again.";
+          }
+
+          console.log(
+            "Auth store: Setting error state with message:",
+            errorMessage
+          );
           set({
             user: null,
             token: null,
             isAuthenticated: false,
-            isLoading: false,
+            isSubmitting: false,
             error: errorMessage,
           });
+          console.log("Auth store: Error state set, throwing error");
           throw error;
         }
       },
 
       register: async (data: RegisterRequest) => {
         try {
-          set({ isLoading: true, error: null });
+          set({ isSubmitting: true, error: null });
 
           const response = await authApi.register(data);
 
@@ -69,19 +103,40 @@ export const useAuthStore = create<AuthStore>()(
             user: response.user,
             token: response.token,
             isAuthenticated: true,
-            isLoading: false,
+            isSubmitting: false,
             error: null,
+            isInitialized: true,
           });
         } catch (error: any) {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.message ||
-            "Registration failed";
+          let errorMessage = "Registration failed";
+
+          // Handle specific error responses from backend
+          if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.response?.data?.error) {
+            errorMessage = error.response.data.error;
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+
+          // Map generic errors to user-friendly messages
+          if (errorMessage.includes("User already exists")) {
+            errorMessage =
+              "An account with this email already exists. Please use a different email or try logging in.";
+          } else if (errorMessage.includes("validation")) {
+            errorMessage = "Please check your input and try again.";
+          } else if (errorMessage.includes("Network Error")) {
+            errorMessage =
+              "Network error. Please check your connection and try again.";
+          } else if (errorMessage.includes("timeout")) {
+            errorMessage = "Request timeout. Please try again.";
+          }
+
           set({
             user: null,
             token: null,
             isAuthenticated: false,
-            isLoading: false,
+            isSubmitting: false,
             error: errorMessage,
           });
           throw error;
@@ -98,7 +153,9 @@ export const useAuthStore = create<AuthStore>()(
           token: null,
           isAuthenticated: false,
           isLoading: false,
+          isSubmitting: false,
           error: null,
+          isInitialized: true,
         });
       },
 
@@ -189,9 +246,22 @@ export const useAuthStore = create<AuthStore>()(
 
 // Helper hooks for easier usage
 export const useAuth = () => {
-  const { user, isAuthenticated, isLoading, error, isInitialized } =
-    useAuthStore();
-  return { user, isAuthenticated, isLoading, error, isInitialized };
+  const {
+    user,
+    isAuthenticated,
+    isLoading,
+    isSubmitting,
+    error,
+    isInitialized,
+  } = useAuthStore();
+  return {
+    user,
+    isAuthenticated,
+    isLoading,
+    isSubmitting,
+    error,
+    isInitialized,
+  };
 };
 
 export const useAuthActions = () => {

@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { Globe } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +14,7 @@ export function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/dashboard", { replace: true });
+      navigate("/urls", { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -23,7 +24,7 @@ export function LoginPage() {
     });
 
     setTimeout(() => {
-      navigate("/dashboard", { replace: true });
+      navigate("/urls", { replace: true });
     }, 1500);
   };
 
@@ -33,7 +34,7 @@ export function LoginPage() {
     });
 
     setTimeout(() => {
-      navigate("/dashboard", { replace: true });
+      navigate("/urls", { replace: true });
     }, 1500);
   };
 

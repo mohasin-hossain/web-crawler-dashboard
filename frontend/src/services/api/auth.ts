@@ -81,18 +81,25 @@ export const authApi = {
   },
 
   login: async (data: LoginRequest): Promise<AuthResponse> => {
-    const response = await apiClient.post<ApiResponse<AuthResponse>>(
-      "/api/auth/login",
-      data
-    );
+    try {
+      console.log("Auth API: Making login request");
+      const response = await apiClient.post<ApiResponse<AuthResponse>>(
+        "/api/auth/login",
+        data
+      );
+      console.log("Auth API: Login response received", response.data);
 
-    // Store token and user data
-    if (response.data.data.token) {
-      tokenStorage.set(response.data.data.token);
-      userStorage.set(response.data.data.user);
+      // Store token and user data
+      if (response.data.data.token) {
+        tokenStorage.set(response.data.data.token);
+        userStorage.set(response.data.data.user);
+      }
+
+      return response.data.data;
+    } catch (error) {
+      console.error("Auth API: Login error", error);
+      throw error;
     }
-
-    return response.data.data;
   },
 
   logout: async (): Promise<void> => {

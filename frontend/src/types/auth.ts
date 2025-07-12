@@ -35,6 +35,8 @@ export interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  isLoading: boolean; // App-level loading (checking auth on startup)
+  isSubmitting: boolean; // Form-level loading (login/register operations)
   error: string | null;
+  isInitialized: boolean; // Whether auth state has been initialized
 }

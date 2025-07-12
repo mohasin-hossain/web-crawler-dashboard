@@ -113,13 +113,27 @@ export function BulkActions({
 
   return (
     <>
-      <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex items-center space-x-4">
-          <span className="text-sm font-medium text-blue-900">
-            {selectedCount} URL{selectedCount !== 1 ? "s" : ""} selected
-          </span>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        {/* All content in a single row on large screens, allow wrap on all except lg */}
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 md:gap-2 w-full min-w-0">
+          {/* Header and Selection Info */}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-medium text-blue-900 truncate">
+              {selectedCount} URL{selectedCount !== 1 ? "s" : ""} selected
+            </span>
+            {/* Mobile clear button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearSelection}
+              className="text-gray-500 hover:text-gray-700 sm:hidden"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
 
-          <div className="flex items-center space-x-2">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto min-w-0">
             <Button
               variant="outline"
               size="sm"
@@ -129,7 +143,8 @@ export function BulkActions({
                 canStartAnalysis
                   ? "text-green-700 border-green-300 hover:bg-green-50"
                   : "text-gray-400 border-gray-200 cursor-not-allowed"
-              }`}
+              } truncate min-w-0`}
+              style={{ maxWidth: "100%" }}
             >
               {isActionLoading("analyze") ? (
                 <>
@@ -153,7 +168,8 @@ export function BulkActions({
                 canStopAnalysis
                   ? "text-orange-700 border-orange-300 hover:bg-orange-50"
                   : "text-gray-400 border-gray-200 cursor-not-allowed opacity-50"
-              }`}
+              } truncate min-w-0`}
+              style={{ maxWidth: "100%" }}
             >
               {isActionLoading("stop") ? (
                 <>
@@ -179,7 +195,8 @@ export function BulkActions({
                 processingCount > 0
                   ? "text-gray-400 border-gray-200 cursor-not-allowed"
                   : "text-red-700 border-red-300 hover:bg-red-50"
-              }`}
+              } truncate min-w-0`}
+              style={{ maxWidth: "100%" }}
             >
               {isActionLoading("delete") ? (
                 <>
@@ -194,16 +211,17 @@ export function BulkActions({
               )}
             </Button>
           </div>
-        </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClearSelection}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+          {/* Desktop Clear Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClearSelection}
+            className="text-gray-500 hover:text-gray-700 hidden sm:flex"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

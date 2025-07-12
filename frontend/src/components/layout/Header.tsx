@@ -5,7 +5,7 @@ interface HeaderProps {
   sidebarCollapsed: boolean;
 }
 
-export function Header({ sidebarCollapsed }: HeaderProps) {
+export function Header({ sidebarCollapsed: _ }: HeaderProps) {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -13,7 +13,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
       transition: {
         staggerChildren: 0.2,
         duration: 0.6,
-        ease: "easeOut",
+        ease: "easeOut" as const,
       },
     },
   };
@@ -26,7 +26,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
       scale: 1,
       transition: {
         duration: 0.6,
-        ease: "easeOut",
+        ease: "easeOut" as const,
       },
     },
   };
@@ -39,7 +39,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
       transition: {
         duration: 3,
         repeat: Infinity,
-        ease: "easeInOut",
+        ease: "easeInOut" as const,
       },
     },
     hover: {
@@ -47,7 +47,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
       scale: 1.1,
       transition: {
         duration: 0.6,
-        ease: "easeInOut",
+        ease: "easeInOut" as const,
       },
     },
   };
@@ -91,7 +91,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
                   }}
                   transition={{
                     duration: 0.3,
-                    ease: "easeOut",
+                    ease: "easeOut" as const,
                   }}
                 >
                   CrawlDash

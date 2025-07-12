@@ -190,28 +190,37 @@ export function UrlDetailPage() {
     }
   };
 
+  function hasErrorProp(obj: unknown): obj is { error: string } {
+    return (
+      typeof obj === "object" &&
+      obj !== null &&
+      "error" in obj &&
+      typeof (obj as any).error === "string"
+    );
+  }
+
   // Show loading/processing/queued state during initial load or while processing
   if (pollingLoading || urlInfoLoading || isProcessing || isQueued) {
     return (
       <div className="min-h-[500px] flex items-center justify-center">
-        <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm p-8 max-w-md w-full text-center">
-          <div className="mb-6">
-            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4">
+        <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm p-4 md:p-8 max-w-md w-full text-center">
+          <div className="mb-4 md:mb-6">
+            <div className="mx-auto w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mb-3 md:mb-4">
               {isQueued ? (
-                <div className="bg-yellow-50 w-16 h-16 rounded-full flex items-center justify-center">
-                  <Clock className="w-8 h-8 text-yellow-500" />
+                <div className="bg-yellow-50 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center">
+                  <Clock className="w-6 h-6 md:w-8 md:h-8 text-yellow-500" />
                 </div>
               ) : isProcessing ? (
-                <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center">
-                  <div className="w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
+                <div className="bg-blue-50 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
                 </div>
               ) : (
-                <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center">
-                  <div className="w-8 h-8 rounded-full border-4 border-gray-600 border-t-transparent animate-spin" />
+                <div className="bg-gray-50 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border-4 border-gray-600 border-t-transparent animate-spin" />
                 </div>
               )}
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-lg md:text-2xl font-bold text-gray-900 mb-1 md:mb-2">
               {isQueued
                 ? "URL Analysis Queued"
                 : isProcessing
@@ -219,7 +228,7 @@ export function UrlDetailPage() {
                 : "Loading Analysis"}
             </h2>
             <p
-              className={`${
+              className={`text-sm md:text-base ${
                 isQueued
                   ? "text-yellow-600"
                   : isProcessing
@@ -234,11 +243,11 @@ export function UrlDetailPage() {
                 : "Please wait while we load your analysis..."}
             </p>
           </div>
-          <div className="flex items-center justify-center space-x-3">
+          <div className="flex items-center justify-center space-x-2 md:space-x-3">
             <Button
               onClick={() => navigate("/urls")}
               variant="outline"
-              className="min-w-[140px]"
+              className="h-9 md:h-10 text-sm md:text-base px-4 md:px-6 min-w-[100px] md:min-w-[140px]"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -253,32 +262,34 @@ export function UrlDetailPage() {
   if (isErrorStatus || (!analysis && !isProcessing && error)) {
     return (
       <div className="min-h-[500px] flex items-center justify-center">
-        <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm p-8 max-w-md w-full text-center">
-          <div className="mb-6">
-            <div className="mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
-              <XCircle className="w-8 h-8 text-red-500" />
+        <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm p-4 md:p-8 max-w-md w-full text-center">
+          <div className="mb-4 md:mb-6">
+            <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-red-50 rounded-full flex items-center justify-center mb-3 md:mb-4">
+              <XCircle className="w-6 h-6 md:w-8 md:h-8 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-lg md:text-2xl font-bold text-gray-900 mb-1 md:mb-2">
               {isErrorStatus ? "Analysis Failed" : "Error Loading Analysis"}
             </h2>
-            <p className="text-gray-600">
-              {analysis?.error ||
-                error ||
-                "Failed to retrieve analysis results"}
+            <p className="text-sm md:text-base text-gray-600">
+              {hasErrorProp(analysis)
+                ? analysis.error ||
+                  error ||
+                  "Failed to retrieve analysis results"
+                : error || "Failed to retrieve analysis results"}
             </p>
           </div>
-          <div className="flex items-center justify-center space-x-3">
+          <div className="flex items-center justify-center space-x-2 md:space-x-3">
             <Button
               onClick={() => navigate("/urls")}
               variant="outline"
-              className="min-w-[140px]"
+              className="h-9 md:h-10 text-sm md:text-base px-4 md:px-6 min-w-[100px] md:min-w-[140px]"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
             <Button
               onClick={() => refetch()}
-              className="min-w-[140px] bg-blue-600 hover:bg-blue-700"
+              className="h-9 md:h-10 text-sm md:text-base px-4 md:px-6 min-w-[100px] md:min-w-[140px] bg-blue-600 hover:bg-blue-700"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Retry
@@ -293,23 +304,23 @@ export function UrlDetailPage() {
   if (!analysis && !isProcessing) {
     return (
       <div className="min-h-[500px] flex items-center justify-center">
-        <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm p-8 max-w-md w-full text-center">
-          <div className="mb-6">
-            <div className="mx-auto w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mb-4">
-              <AlertTriangle className="w-8 h-8 text-yellow-500" />
+        <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm p-4 md:p-8 max-w-md w-full text-center">
+          <div className="mb-4 md:mb-6">
+            <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-yellow-50 rounded-full flex items-center justify-center mb-3 md:mb-4">
+              <AlertTriangle className="w-6 h-6 md:w-8 md:h-8 text-yellow-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-lg md:text-2xl font-bold text-gray-900 mb-1 md:mb-2">
               Analysis Not Found
             </h2>
-            <p className="text-gray-600">
+            <p className="text-sm md:text-base text-gray-600">
               The requested analysis could not be found
             </p>
           </div>
-          <div className="flex items-center justify-center space-x-3">
+          <div className="flex items-center justify-center space-x-2 md:space-x-3">
             <Button
               onClick={() => navigate("/urls")}
               variant="outline"
-              className="min-w-[140px]"
+              className="h-9 md:h-10 text-sm md:text-base px-4 md:px-6 min-w-[100px] md:min-w-[140px]"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -326,33 +337,81 @@ export function UrlDetailPage() {
   // isProcessing already declared earlier in the component
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Details Page Navigation with rounded corners */}
       <div className="bg-white border border-gray-200/50 rounded-2xl shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/urls")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to URL Management
-              </Button>
-              <div className="h-6 border-l border-gray-300"></div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  URL Analysis Details
-                </h1>
-                {isProcessing && (
-                  <ProcessingIndicator url={analysis?.url} className="mt-1" />
-                )}
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between py-4 sm:py-6 gap-3 md:gap-0">
+            {/* Responsive Nav/Title: md and below = single row, lg+ = row */}
+            <div className="w-full flex flex-row items-center justify-between lg:block">
+              {/* Small/medium screens: title left, icons right */}
+              <div className="flex flex-row items-center justify-between w-full lg:hidden">
+                <div className="flex items-center pl-3">
+                  <h1 className="text-lg font-bold text-gray-900">
+                    URL Analysis Details
+                  </h1>
+                  {isProcessing && (
+                    <ProcessingIndicator url={analysis?.url} className="ml-2" />
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate("/urls")}
+                    className="text-gray-600 hover:text-gray-900"
+                    aria-label="Back to URL Management"
+                    title="Back to URL Management"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => window.open(analysis?.url, "_blank")}
+                    aria-label="Visit Site"
+                    title="Visit Site"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleDeleteUrl}
+                    disabled={actionLoading.delete || isProcessing}
+                    className="text-red-600 hover:text-red-700"
+                    aria-label="Delete"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+              {/* Large screens: keep previous layout */}
+              <div className="hidden lg:flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate("/urls")}
+                  className="text-gray-600 hover:text-gray-900 w-fit"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  <span className="text-base">Back to URL Management</span>
+                </Button>
+                <div className="h-6 border-l border-gray-300"></div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    URL Analysis Details
+                  </h1>
+                  {isProcessing && (
+                    <ProcessingIndicator url={analysis?.url} className="mt-1" />
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
+            {/* Action Buttons: icon row for md and below, full buttons for lg+ */}
+            {/* Icon row is already rendered above for md and below */}
+            <div className="hidden lg:flex items-center space-x-2 mt-2 lg:mt-0">
               {canStartAnalysis && (
                 <Button
                   onClick={handleStartAnalysis}
@@ -367,7 +426,6 @@ export function UrlDetailPage() {
                   Start Analysis
                 </Button>
               )}
-
               {canStopAnalysis && (
                 <Button
                   onClick={handleStopAnalysis}
@@ -383,7 +441,6 @@ export function UrlDetailPage() {
                   Stop Analysis
                 </Button>
               )}
-
               <Button
                 onClick={() => window.open(analysis?.url, "_blank")}
                 variant="outline"
@@ -392,7 +449,6 @@ export function UrlDetailPage() {
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Visit Site
               </Button>
-
               <Button
                 onClick={handleDeleteUrl}
                 disabled={actionLoading.delete || isProcessing}
@@ -414,12 +470,18 @@ export function UrlDetailPage() {
 
       {/* Content */}
       <ErrorBoundary>
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {analysis && (
             <>
-              <AnalysisOverview analysis={analysis} />
-              <LinksChart analysis={analysis} />
-              <BrokenLinksTable analysis={analysis} />
+              <div className="overflow-x-auto">
+                <AnalysisOverview analysis={analysis} />
+              </div>
+              <div className="overflow-x-auto">
+                <LinksChart analysis={analysis} />
+              </div>
+              <div className="overflow-x-auto">
+                <BrokenLinksTable analysis={analysis} />
+              </div>
             </>
           )}
         </div>

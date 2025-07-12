@@ -101,6 +101,7 @@ interface UrlActions {
   bulkDelete: (urlIds: number[]) => Promise<void>;
   bulkAnalyze: (urlIds: number[]) => Promise<void>;
   bulkStop: (urlIds: number[]) => Promise<void>;
+  bulkRerun: (urlIds: number[]) => Promise<void>;
 
   // UI actions
   setFilters: (filters: Partial<UrlTableFilters>) => void;
@@ -454,6 +455,55 @@ export const useUrlStore = create<UrlStore>()(
         }
       },
 
+      // Bulk re-run
+      bulkRerun: async (urlIds: number[]) => {
+        const state = get();
+        set({
+          loadingStates: { ...state.loadingStates, bulk: true },
+          error: null,
+        });
+
+        try {
+          // Filter URLs that can be re-analyzed (completed, error, or queued)
+          const urls = state.urls || [];
+          const validUrlIds = urlIds.filter((id) => {
+            const url = urls.find((u) => u.id === id);
+            return (
+              url &&
+              (url.status === "completed" ||
+                url.status === "error" ||
+                url.status === "queued")
+            );
+          });
+
+          if (validUrlIds.length === 0) {
+            toast.warning("No URLs selected can be re-analyzed");
+            set({ loadingStates: { ...state.loadingStates, bulk: false } });
+            return;
+          }
+
+          const result = await urlsApi.bulkRerun(validUrlIds);
+          toast.success(`Re-ran analysis for ${result.processed} URLs`);
+
+          if (result.failed > 0) {
+            toast.warning(
+              `Failed to re-run analysis for ${result.failed} URLs`
+            );
+          }
+
+          // Update statuses and refresh
+          await get().refreshUrls();
+
+          set({ loadingStates: { ...state.loadingStates, bulk: false } });
+        } catch (error: any) {
+          set({
+            error: error.message,
+            loadingStates: { ...state.loadingStates, bulk: false },
+          });
+          toast.error("Bulk re-run failed: " + error.message);
+        }
+      },
+
       // Set filters without auto-fetching
       setFilters: (newFilters: Partial<UrlTableFilters>) => {
         const state = get();
@@ -634,8 +684,6 @@ export const useUrlStore = create<UrlStore>()(
             const newUrl = {
               ...storeUrl,
               ...polledUrl,
-              // Preserve selection state
-              selected: storeUrl.selected,
             };
 
             return newUrl;

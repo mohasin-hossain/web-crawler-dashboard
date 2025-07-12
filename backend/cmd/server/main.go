@@ -144,6 +144,7 @@ func setupRoutes(router *gin.Engine) {
 		// Analysis control endpoints
 		urlRoutes.POST("/:id/analyze", urlHandler.StartAnalysis)
 		urlRoutes.POST("/:id/stop", urlHandler.StopAnalysis)
+		urlRoutes.POST("/:id/rerun", urlHandler.ReRunAnalysis)
 		urlRoutes.GET("/:id/result", urlHandler.GetAnalysisResult)
 	}
 

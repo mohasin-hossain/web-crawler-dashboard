@@ -195,6 +195,50 @@ func (s *URLService) StopAnalysis(userID, urlID uint) error {
 	return nil
 }
 
+// ReRunAnalysis re-runs analysis for a URL that has already been analyzed
+func (s *URLService) ReRunAnalysis(ctx context.Context, userID, urlID uint) error {
+	// Get and validate URL
+	url, err := s.GetURL(userID, urlID)
+	if err != nil {
+		return err
+	}
+
+	// Check if analysis is currently running
+	if url.Status == models.StatusProcessing {
+		return fmt.Errorf("analysis is already running for this URL")
+	}
+
+	// Check if crawler service reports it's running (additional safety check)
+	if s.crawlerService.IsRunning(urlID) {
+		return fmt.Errorf("crawler reports analysis is already running")
+	}
+
+	// Clear previous analysis results if they exist
+	var analysis models.AnalysisResult
+	if err := s.db.Where("url_id = ?", urlID).First(&analysis).Error; err == nil {
+		// Analysis exists, hard delete it to clear previous results
+		if err := s.db.Unscoped().Delete(&analysis).Error; err != nil {
+			log.Printf("Warning: failed to hard delete previous analysis for URL ID %d: %v", urlID, err)
+		}
+	}
+
+	// Reset URL status and clear previous data
+	url.Status = models.StatusQueued
+	url.Title = ""
+	if err := s.db.Save(url).Error; err != nil {
+		return fmt.Errorf("failed to reset URL status: %w", err)
+	}
+
+	// Start new analysis
+	err = s.StartAnalysis(ctx, userID, urlID)
+	if err != nil {
+		return fmt.Errorf("failed to start re-analysis: %w", err)
+	}
+
+	log.Printf("Re-started analysis for URL ID %d: %s", urlID, url.URL)
+	return nil
+}
+
 // GetAnalysisResult retrieves analysis results for a URL
 func (s *URLService) GetAnalysisResult(userID, urlID uint) (*models.AnalysisResult, error) {
 	// First verify user owns the URL

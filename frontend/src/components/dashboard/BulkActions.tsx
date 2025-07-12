@@ -1,4 +1,4 @@
-import { Play, Square, Trash2, X } from "lucide-react";
+import { Play, RefreshCw, Square, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type { BulkAction, Url } from "../../types/url";
 import {
@@ -19,6 +19,7 @@ interface BulkActionsProps {
   onBulkDelete: () => Promise<void>;
   onBulkAnalyze: () => Promise<void>;
   onBulkStop: () => Promise<void>;
+  onBulkRerun: () => Promise<void>;
   onClearSelection: () => void;
   loading?: boolean;
 }
@@ -29,6 +30,7 @@ export function BulkActions({
   onBulkDelete,
   onBulkAnalyze,
   onBulkStop,
+  onBulkRerun,
   onClearSelection,
   loading = false,
 }: BulkActionsProps) {
@@ -54,10 +56,13 @@ export function BulkActions({
     (urlsByStatus["unknown"] || 0);
 
   const processingCount = urlsByStatus["processing"] || 0;
+  const completedCount = urlsByStatus["completed"] || 0;
 
   // Determine button states
   const canStartAnalysis = canAnalyzeCount > 0;
   const canStopAnalysis = processingCount > 0;
+  const canRerunAnalysis =
+    completedCount > 0 || (urlsByStatus["error"] || 0) > 0;
 
   const handleBulkAction = async (action: BulkAction) => {
     setPendingAction(action);
@@ -71,6 +76,9 @@ export function BulkActions({
           break;
         case "stop":
           await onBulkStop();
+          break;
+        case "rerun":
+          await onBulkRerun();
           break;
       }
     } finally {
@@ -111,6 +119,17 @@ export function BulkActions({
     return `Stop Analysis (${processingCount} processing)`;
   };
 
+  const getRerunButtonText = () => {
+    if (!canRerunAnalysis) return "No URLs to re-run";
+
+    const parts = [];
+    if (urlsByStatus["completed"])
+      parts.push(`${urlsByStatus["completed"]} completed`);
+    if (urlsByStatus["error"]) parts.push(`${urlsByStatus["error"]} failed`);
+
+    return `Re-run Analysis (${parts.join(", ")})`;
+  };
+
   return (
     <>
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -134,82 +153,97 @@ export function BulkActions({
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto min-w-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleBulkAction("analyze")}
-              disabled={loading || pendingAction !== null || !canStartAnalysis}
-              className={`${
-                canStartAnalysis
-                  ? "text-green-700 border-green-300 hover:bg-green-50"
-                  : "text-gray-400 border-gray-200 cursor-not-allowed"
-              } truncate min-w-0`}
-              style={{ maxWidth: "100%" }}
-            >
-              {isActionLoading("analyze") ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
-                  Starting...
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  {getAnalysisButtonText()}
-                </>
-              )}
-            </Button>
+            {canStartAnalysis && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAction("analyze")}
+                disabled={loading || pendingAction !== null}
+                className="text-green-700 border-green-300 hover:bg-green-50 truncate min-w-0"
+                style={{ maxWidth: "100%" }}
+              >
+                {isActionLoading("analyze") ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-2 h-4 w-4" />
+                    {getAnalysisButtonText()}
+                  </>
+                )}
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleBulkAction("stop")}
-              disabled={loading || pendingAction !== null || !canStopAnalysis}
-              className={`${
-                canStopAnalysis
-                  ? "text-orange-700 border-orange-300 hover:bg-orange-50"
-                  : "text-gray-400 border-gray-200 cursor-not-allowed opacity-50"
-              } truncate min-w-0`}
-              style={{ maxWidth: "100%" }}
-            >
-              {isActionLoading("stop") ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-orange-600 border-t-transparent" />
-                  Stopping...
-                </>
-              ) : (
-                <>
-                  <Square className="mr-2 h-4 w-4" />
-                  {getStopButtonText()}
-                </>
-              )}
-            </Button>
+            {canStopAnalysis && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAction("stop")}
+                disabled={loading || pendingAction !== null}
+                className="text-orange-700 border-orange-300 hover:bg-orange-50 truncate min-w-0"
+                style={{ maxWidth: "100%" }}
+              >
+                {isActionLoading("stop") ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-orange-600 border-t-transparent" />
+                    Stopping...
+                  </>
+                ) : (
+                  <>
+                    <Square className="mr-2 h-4 w-4" />
+                    {getStopButtonText()}
+                  </>
+                )}
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDeleteClick}
-              disabled={
-                loading || pendingAction !== null || processingCount > 0
-              }
-              className={`${
-                processingCount > 0
-                  ? "text-gray-400 border-gray-200 cursor-not-allowed"
-                  : "text-red-700 border-red-300 hover:bg-red-50"
-              } truncate min-w-0`}
-              style={{ maxWidth: "100%" }}
-            >
-              {isActionLoading("delete") ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-                  Deleting...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </>
-              )}
-            </Button>
+            {canRerunAnalysis && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAction("rerun")}
+                disabled={loading || pendingAction !== null}
+                className="text-purple-700 border-purple-300 hover:bg-purple-50 truncate min-w-0"
+                style={{ maxWidth: "100%" }}
+              >
+                {isActionLoading("rerun") ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+                    Re-running...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    {getRerunButtonText()}
+                  </>
+                )}
+              </Button>
+            )}
+
+            {processingCount === 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeleteClick}
+                disabled={loading || pendingAction !== null}
+                className="text-red-700 border-red-300 hover:bg-red-50 truncate min-w-0"
+                style={{ maxWidth: "100%" }}
+              >
+                {isActionLoading("delete") ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </>
+                )}
+              </Button>
+            )}
           </div>
 
           {/* Desktop Clear Button */}

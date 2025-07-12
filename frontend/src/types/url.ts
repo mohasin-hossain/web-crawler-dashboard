@@ -144,7 +144,7 @@ export interface TrendData {
 }
 
 // Bulk action types
-export type BulkAction = "delete" | "analyze" | "stop";
+export type BulkAction = "delete" | "analyze" | "stop" | "rerun";
 
 export interface BulkActionRequest {
   action: BulkAction;

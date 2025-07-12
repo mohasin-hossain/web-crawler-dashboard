@@ -97,6 +97,18 @@ export const urlsApi = {
     }
   },
 
+  // Re-run analysis for a URL
+  rerunAnalysis: async (id: number): Promise<UrlActionResponse> => {
+    try {
+      const response = await apiClient.post<UrlActionResponse>(
+        `/api/urls/${id}/rerun`
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
   // Get detailed analysis results for a URL
   getAnalysisResult: async (id: number): Promise<AnalysisResult> => {
     try {
@@ -130,6 +142,9 @@ export const urlsApi = {
           case "stop":
             await urlsApi.stopAnalysis(urlId);
             break;
+          case "rerun":
+            await urlsApi.rerunAnalysis(urlId);
+            break;
         }
         processed++;
       } catch (error) {
@@ -149,6 +164,8 @@ export const urlsApi = {
                 ? "started analysis for"
                 : action === "stop"
                 ? "stopped analysis for"
+                : action === "rerun"
+                ? "re-ran analysis for"
                 : "deleted"
             } ${processed} URLs`
           : `${
@@ -156,6 +173,8 @@ export const urlsApi = {
                 ? "Started analysis for"
                 : action === "stop"
                 ? "Stopped analysis for"
+                : action === "rerun"
+                ? "Re-ran analysis for"
                 : "Deleted"
             } ${processed} URLs, ${failed} failed`,
     };
@@ -174,6 +193,11 @@ export const urlsApi = {
   // Bulk stop analysis
   bulkStop: async (urlIds: number[]): Promise<BulkActionResponse> => {
     return urlsApi.bulkAction({ action: "stop", urlIds });
+  },
+
+  // Bulk re-run analysis
+  bulkRerun: async (urlIds: number[]): Promise<BulkActionResponse> => {
+    return urlsApi.bulkAction({ action: "rerun", urlIds });
   },
 
   // Helper function to check if URL is processing

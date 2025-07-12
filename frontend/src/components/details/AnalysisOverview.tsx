@@ -171,7 +171,7 @@ export function AnalysisOverview({ analysis }: AnalysisOverviewProps) {
             <h4 className="font-medium text-gray-900 mb-3">
               Content Structure
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Headings:</span>
                 <span className="font-medium">{totalHeadings}</span>
@@ -223,6 +223,68 @@ export function AnalysisOverview({ analysis }: AnalysisOverviewProps) {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Heading Distribution */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Heading Distribution
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {Object.entries(analysis.headings).map(([level, count], index) => {
+            const colors = [
+              {
+                bg: "bg-blue-50",
+                text: "text-blue-600",
+                border: "border-blue-200",
+              },
+              {
+                bg: "bg-green-50",
+                text: "text-green-600",
+                border: "border-green-200",
+              },
+              {
+                bg: "bg-purple-50",
+                text: "text-purple-600",
+                border: "border-purple-200",
+              },
+              {
+                bg: "bg-yellow-50",
+                text: "text-yellow-600",
+                border: "border-yellow-200",
+              },
+              {
+                bg: "bg-red-50",
+                text: "text-red-600",
+                border: "border-red-200",
+              },
+              {
+                bg: "bg-gray-50",
+                text: "text-gray-600",
+                border: "border-gray-200",
+              },
+            ];
+            const color = colors[index % colors.length];
+
+            return (
+              <div
+                key={level}
+                className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+              >
+                <div className="text-center">
+                  <div className={`text-2xl font-bold ${color.text} mb-1`}>
+                    {count}
+                  </div>
+                  <div
+                    className={`text-sm font-medium ${color.text} uppercase tracking-wide`}
+                  >
+                    {level}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

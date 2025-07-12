@@ -68,6 +68,7 @@ export function UrlManagementPage() {
     bulkDelete,
     bulkAnalyze,
     bulkStop,
+    bulkRerun,
     clearError,
     syncUrlsData, // Add method to sync polling data
   } = urlStoreData;
@@ -237,6 +238,15 @@ export function UrlManagementPage() {
                 onBulkDelete={() => bulkDelete(Array.from(selectedUrls))}
                 onBulkAnalyze={() => bulkAnalyze(Array.from(selectedUrls))}
                 onBulkStop={() => bulkStop(Array.from(selectedUrls))}
+                onBulkRerun={() => {
+                  const rerunIds = selectedUrlObjects
+                    .filter(
+                      (url) =>
+                        url.status === "completed" || url.status === "error"
+                    )
+                    .map((url) => url.id);
+                  return bulkRerun(rerunIds);
+                }}
                 onClearSelection={deselectAllUrls}
                 loading={loadingStates?.bulk || false}
               />

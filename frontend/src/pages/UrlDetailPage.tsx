@@ -479,6 +479,7 @@ export function UrlDetailPage() {
               <div className="overflow-x-auto">
                 <LinksChart analysis={analysis} />
               </div>
+              {/* Use dummyAnalysis for BrokenLinksTable for UI testing */}
               <div className="overflow-x-auto">
                 <BrokenLinksTable analysis={analysis} />
               </div>

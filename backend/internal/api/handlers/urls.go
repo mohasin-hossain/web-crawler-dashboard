@@ -482,6 +482,74 @@ func (h *URLHandler) StopAnalysis(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// ReRunAnalysis re-runs analysis for a URL
+func (h *URLHandler) ReRunAnalysis(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "unauthorized",
+			"message": "User context not found",
+		})
+		return
+	}
+
+	// Get URL ID from params
+	urlID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid_id",
+			"message": "Invalid URL ID",
+		})
+		return
+	}
+
+	// Re-run analysis
+	err = h.urlService.ReRunAnalysis(c.Request.Context(), userID, uint(urlID))
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "url_not_found",
+				"message": "URL not found",
+			})
+			return
+		}
+		if strings.Contains(err.Error(), "already running") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "analysis_running",
+				"message": err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "service_error",
+			"message": "Failed to re-run analysis",
+		})
+		return
+	}
+
+	// Get updated URL for response
+	url, err := h.urlService.GetURL(userID, uint(urlID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "service_error",
+			"message": "Failed to retrieve updated URL",
+		})
+		return
+	}
+
+	response := URLResponse{
+		ID:        url.ID,
+		URL:       url.URL,
+		Title:     url.Title,
+		Status:    url.Status,
+		CreatedAt: url.CreatedAt,
+		UpdatedAt: url.UpdatedAt,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // GetAnalysisResult retrieves analysis results for a URL
 func (h *URLHandler) GetAnalysisResult(c *gin.Context) {
 	// Get user ID from context

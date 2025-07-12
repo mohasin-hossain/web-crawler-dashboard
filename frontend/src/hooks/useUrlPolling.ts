@@ -1,12 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { urlsApi } from "../services/api/urls";
-import type {
-  AnalysisResult,
-  Url,
-  UrlsQueryParams,
-  UrlsResponse,
-} from "../types/url";
+import type { AnalysisResult, Url, UrlsQueryParams } from "../types/url";
 
 interface UseUrlPollingOptions {
   enabled?: boolean;
@@ -27,12 +22,13 @@ export function useUrlPolling(
 ): PollingResult {
   const {
     enabled = true,
-    pollingInterval = 3000, // 3 seconds default
+    pollingInterval = 1000, // 1 second default
     queryParams = {},
   } = options;
 
   const queryClient = useQueryClient();
   const previousProcessingUrls = useRef<Set<number>>(new Set());
+  const previousUrlStates = useRef<Map<number, string>>(new Map());
 
   // Query for URLs with polling enabled when there are processing URLs
   const {
@@ -45,62 +41,43 @@ export function useUrlPolling(
     queryFn: () => urlsApi.getUrls(queryParams),
     enabled,
     refetchInterval: (data) => {
-      // Only poll if there are processing URLs
-      const response = data as unknown as UrlsResponse;
-      if (!response?.urls) return false;
-
-      const processingUrls = response.urls.filter(
-        (url: Url) => url.status?.toLowerCase() === "processing"
-      );
-      return processingUrls.length > 0 ? pollingInterval : false;
+      // Always poll at the specified interval
+      return pollingInterval;
     },
     refetchOnWindowFocus: true,
-    staleTime: 1000, // Consider data stale after 1 second
+    staleTime: 0, // Consider data always stale
+    cacheTime: 0, // Disable caching
+    notifyOnChangeProps: ["data", "error"], // Only trigger re-render on data/error changes
   });
 
   const urls: Url[] = urlsResponse?.urls || [];
   const hasProcessingUrls = urls.some(
-    (url: Url) => url.status?.toLowerCase() === "processing"
+    (url: Url) =>
+      url.status?.toLowerCase() === "processing" ||
+      url.status?.toLowerCase() === "queued"
   );
 
-  // Handle status change notifications
+  // Handle status change notifications and cache invalidation
   useEffect(() => {
     if (!urls.length) return;
 
-    const currentProcessingUrls = new Set(
-      urls
-        .filter((url: Url) => url.status?.toLowerCase() === "processing")
-        .map((url: Url) => url.id)
+    const currentUrlStates = new Map(
+      urls.map((url) => [url.id, url.status?.toLowerCase() || ""])
     );
 
-    const completedUrls = Array.from(previousProcessingUrls.current).filter(
-      (id: number) => !currentProcessingUrls.has(id)
-    );
+    urls.forEach((url) => {
+      const prevStatus = previousUrlStates.current.get(url.id);
+      const currentStatus = url.status?.toLowerCase();
 
-    // Show notifications for completed analyses
-    if (completedUrls.length > 0) {
-      completedUrls.forEach((urlId: number) => {
-        const url = urls.find((u: Url) => u.id === urlId);
-        if (url) {
-          // You can add toast notifications here if needed
-          console.log(`Analysis completed for: ${url.url}`);
-        }
-      });
-    }
+      if (prevStatus && prevStatus !== currentStatus) {
+        // Status has changed, invalidate cache
+        queryClient.invalidateQueries({ queryKey: ["urls"] });
+        queryClient.invalidateQueries({ queryKey: ["urlResult", url.id] });
+      }
+    });
 
-    previousProcessingUrls.current = currentProcessingUrls;
-  }, [urls]);
-
-  // Auto-refresh individual URL details if they're being viewed
-  useEffect(() => {
-    if (hasProcessingUrls) {
-      // Invalidate URL detail queries to ensure they stay fresh
-      queryClient.invalidateQueries({
-        queryKey: ["urlResult"],
-        exact: false,
-      });
-    }
-  }, [hasProcessingUrls, queryClient]);
+    previousUrlStates.current = currentUrlStates;
+  }, [urls, queryClient]);
 
   return {
     urls,

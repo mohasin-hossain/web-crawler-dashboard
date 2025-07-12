@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"web-crawler-dashboard/internal/crawler"
 	"web-crawler-dashboard/internal/models"
@@ -114,7 +113,7 @@ func (s *URLService) DeleteURL(userID, urlID uint) error {
 	}
 
 	// Check if URL is currently being processed
-	if url.Status == models.StatusRunning {
+	if url.Status == models.StatusProcessing {
 		return fmt.Errorf("cannot delete URL while analysis is running")
 	}
 
@@ -135,7 +134,7 @@ func (s *URLService) StartAnalysis(ctx context.Context, userID, urlID uint) erro
 	}
 
 	// Check if analysis is already running
-	if url.Status == models.StatusRunning {
+	if url.Status == models.StatusProcessing {
 		return fmt.Errorf("analysis is already running for this URL")
 	}
 
@@ -144,8 +143,8 @@ func (s *URLService) StartAnalysis(ctx context.Context, userID, urlID uint) erro
 		return fmt.Errorf("crawler reports analysis is already running")
 	}
 
-	// Update status to running
-	url.Status = models.StatusRunning
+	// Update status to processing
+	url.Status = models.StatusProcessing
 	if err := s.db.Save(url).Error; err != nil {
 		return fmt.Errorf("failed to update URL status: %w", err)
 	}
@@ -176,7 +175,7 @@ func (s *URLService) StopAnalysis(userID, urlID uint) error {
 	}
 
 	// Check if analysis is running
-	if url.Status != models.StatusRunning {
+	if url.Status != models.StatusProcessing {
 		return fmt.Errorf("no analysis is currently running for this URL")
 	}
 
@@ -219,97 +218,72 @@ func (s *URLService) GetAnalysisResult(userID, urlID uint) (*models.AnalysisResu
 
 // handleCrawlResult processes the result of a crawl operation
 func (s *URLService) handleCrawlResult(urlID uint, result *crawler.CrawlResult) {
-	log.Printf("[SERVICE] Processing crawl result for URL ID %d", urlID)
-	
-	// Simple approach: just update the URL status first, then handle analysis separately
-	// This ensures the URL status gets updated even if analysis saving fails
-	
-	// Step 1: Update URL status (most important)
-	var url models.URL
-	if err := s.db.First(&url, urlID).Error; err != nil {
-		log.Printf("[SERVICE] Failed to get URL record for ID %d: %v", urlID, err)
+	// Start a transaction
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		log.Printf("Failed to begin transaction: %v", tx.Error)
 		return
 	}
 
-	// Update URL status and title
+	// Get the URL record
+	var url models.URL
+	if err := tx.First(&url, urlID).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Failed to find URL %d: %v", urlID, err)
+		return
+	}
+
+	// Update URL status based on result
 	if result.Error != "" {
 		url.Status = models.StatusError
-		log.Printf("[SERVICE] Marking URL ID %d as error: %s", urlID, result.Error)
+		url.Title = result.Error // Store error message in title temporarily
 	} else {
 		url.Status = models.StatusCompleted
 		url.Title = result.Title
-		log.Printf("[SERVICE] Marking URL ID %d as completed (title: %s)", urlID, result.Title)
 	}
 
-	if err := s.db.Save(&url).Error; err != nil {
-		log.Printf("[SERVICE] Failed to update URL status for ID %d: %v", urlID, err)
+	// Save URL changes
+	if err := tx.Save(&url).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Failed to update URL %d: %v", urlID, err)
 		return
 	}
 
-	log.Printf("[SERVICE] URL status updated successfully for ID %d", urlID)
+	// Create analysis result
+	analysisResult := s.crawlerService.ConvertToAnalysisResult(result, urlID)
+	analysisResult.URLID = urlID
 
-	// Step 2: Save analysis results (if successful and no critical errors)
-	if result.Error == "" {
-		log.Printf("[SERVICE] Saving analysis results for URL ID %d", urlID)
-		
-		// Check if analysis already exists for this URL (due to uniqueIndex on URLID)
-		var existingAnalysis models.AnalysisResult
-		err := s.db.Where("url_id = ?", urlID).First(&existingAnalysis).Error
-		
-		analysis := &models.AnalysisResult{
-			URLID:         urlID,
-			Title:         result.Title,
-			HTMLVersion:   result.HTMLVersion,
-			InternalLinks: result.InternalLinks,
-			ExternalLinks: result.ExternalLinks,
-			BrokenLinks:   result.BrokenLinks,
-			HasLoginForm:  result.HasLoginForm,
-			H1Count:       result.HeadingCounts["h1"],
-			H2Count:       result.HeadingCounts["h2"],
-			H3Count:       result.HeadingCounts["h3"],
-			H4Count:       result.HeadingCounts["h4"],
-			H5Count:       result.HeadingCounts["h5"],
-			H6Count:       result.HeadingCounts["h6"],
-		}
+	// Save analysis result
+	if err := tx.Create(analysisResult).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Failed to save analysis result for URL %d: %v", urlID, err)
+		return
+	}
 
-		// Set analyzed time
-		now := time.Now()
-		analysis.AnalyzedAt = &now
-
-		if err == gorm.ErrRecordNotFound {
-			// Create new analysis
-			log.Printf("[SERVICE] Creating new analysis result for URL ID %d", urlID)
-			if err := s.db.Create(analysis).Error; err != nil {
-				log.Printf("[SERVICE] Failed to create analysis result for URL ID %d: %v", urlID, err)
-			} else {
-				log.Printf("[SERVICE] New analysis result created successfully for URL ID %d", urlID)
-				// Save broken links details
-				s.saveBrokenLinksDetails(analysis.ID, result.BrokenLinksDetails)
-			}
-		} else if err == nil {
-			// Update existing analysis
-			log.Printf("[SERVICE] Updating existing analysis result for URL ID %d", urlID)
-			analysis.ID = existingAnalysis.ID
-			if err := s.db.Save(analysis).Error; err != nil {
-				log.Printf("[SERVICE] Failed to update analysis result for URL ID %d: %v", urlID, err)
-			} else {
-				log.Printf("[SERVICE] Analysis result updated successfully for URL ID %d", urlID)
-				// Delete existing broken links and save new ones
-				s.db.Where("analysis_id = ?", analysis.ID).Delete(&models.BrokenLink{})
-				s.saveBrokenLinksDetails(analysis.ID, result.BrokenLinksDetails)
-			}
-		} else {
-			log.Printf("[SERVICE] Error checking existing analysis for URL ID %d: %v", urlID, err)
+	// Save broken links if any
+	if len(result.BrokenLinksDetails) > 0 {
+		brokenLinks := s.crawlerService.ConvertToBrokenLinks(result, analysisResult.ID)
+		if err := tx.Create(&brokenLinks).Error; err != nil {
+			tx.Rollback()
+			log.Printf("Failed to save broken links for URL %d: %v", urlID, err)
+			return
 		}
 	}
 
-	log.Printf("[SERVICE] Crawl result processing completed for URL ID %d", urlID)
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		log.Printf("Failed to commit transaction for URL %d: %v", urlID, err)
+		return
+	}
+
+	log.Printf("Successfully processed crawl result for URL ID %d", urlID)
 }
 
 // GetRunningAnalyses returns the count of currently running analyses for a user
 func (s *URLService) GetRunningAnalyses(userID uint) (int64, error) {
 	var count int64
-	err := s.db.Model(&models.URL{}).Where("user_id = ? AND status = ?", userID, models.StatusRunning).Count(&count).Error
+	err := s.db.Model(&models.URL{}).Where("user_id = ? AND status = ?", userID, models.StatusProcessing).Count(&count).Error
 	if err != nil {
 		return 0, fmt.Errorf("failed to count running analyses: %w", err)
 	}
@@ -343,7 +317,7 @@ func (s *URLService) GetUserStats(userID uint) (map[string]interface{}, error) {
 	}
 
 	stats["status_counts"] = statusCounts
-	stats["total_urls"] = statusCounts["queued"] + statusCounts["running"] + statusCounts["completed"] + statusCounts["error"]
+	stats["total_urls"] = statusCounts["queued"] + statusCounts["processing"] + statusCounts["completed"] + statusCounts["error"]
 
 	// Get recent activity (last 10 URLs)
 	var recentURLs []models.URL

@@ -365,9 +365,6 @@ export function UrlTable({
                     >
                       {formatUrl(url.url)}
                     </div>
-                    {url.status === "processing" && (
-                      <ProcessingIndicator className="ml-2" />
-                    )}
                   </div>
                 </TableCell>
 

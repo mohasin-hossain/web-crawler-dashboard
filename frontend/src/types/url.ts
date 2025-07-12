@@ -1,5 +1,6 @@
 // URL Status types
 export type UrlStatus =
+  | "queued"
   | "pending"
   | "processing"
   | "completed"
@@ -125,10 +126,6 @@ export interface UrlStats {
   // Enhanced stats
   successRate: number; // Percentage of completed vs total analyzed
   recentActivity: RecentActivity[];
-  trends: {
-    totalUrls: TrendData;
-    successRate: TrendData;
-  };
 }
 
 export interface RecentActivity {

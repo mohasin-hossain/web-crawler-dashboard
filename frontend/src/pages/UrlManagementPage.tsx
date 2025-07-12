@@ -1,7 +1,6 @@
 import { Link as LinkIcon, Plus, XCircle } from "lucide-react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ProcessingIndicator } from "../components/common";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { BulkActions } from "../components/dashboard/BulkActions";
 import { FilterBar } from "../components/dashboard/FilterBar";
@@ -52,7 +51,7 @@ export function UrlManagementPage() {
     refetch: refetchPolling,
   } = useUrlPolling({
     enabled: isAuthenticated && !!user,
-    pollingInterval: 3000, // 3 seconds
+    pollingInterval: 1000, // Poll every second for more responsive updates
     queryParams: {
       page: filters?.page,
       limit: filters?.limit,
@@ -63,10 +62,17 @@ export function UrlManagementPage() {
 
   // Sync polling data with store whenever polled data changes
   useEffect(() => {
-    if (polledUrls && polledUrls.length > 0 && syncUrlsData) {
+    if (polledUrls && polledUrls.length > 0) {
       syncUrlsData(polledUrls);
+      // Force a refresh of the table data
+      fetchUrls({
+        page: filters?.page,
+        limit: filters?.limit,
+        search: filters?.search || undefined,
+        status: filters?.status !== "all" ? filters?.status : undefined,
+      });
     }
-  }, [polledUrls, syncUrlsData]);
+  }, [polledUrls, syncUrlsData, fetchUrls, filters]);
 
   // Initial fetch and sync with store
   useEffect(() => {
@@ -147,13 +153,13 @@ export function UrlManagementPage() {
         <div className="p-6">
           {/* Add New URL Section */}
           <div className="mb-8">
-            <div className="flex items-center mb-4">
+            <div className="flex items-center mb-1">
               <Plus className="w-6 h-6 text-blue-600 mr-3" />
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                 Add New URL
               </h2>
             </div>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="ml-9 text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
               Enter a website URL to analyze its structure, links, and
               performance
             </p>
@@ -176,11 +182,6 @@ export function UrlManagementPage() {
               </div>
               <p className="ml-9 text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Analyze and manage your website URLs
-                {hasProcessingUrls && (
-                  <span className="ml-2 inline-flex items-center">
-                    <ProcessingIndicator />
-                  </span>
-                )}
               </p>
             </div>
           </div>

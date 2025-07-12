@@ -199,16 +199,19 @@ export function LinksChart({ analysis }: LinksChartProps) {
                 <RechartsBarChart
                   data={linksData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  maxBarSize={100}
+                  layout="vertical"
                 >
-                  <XAxis
+                  <XAxis type="number" stroke="#6b7280" fontSize={12} />
+                  <YAxis
                     dataKey="type"
+                    type="category"
                     stroke="#6b7280"
                     fontSize={12}
-                    tick={{ fontSize: 12 }}
+                    width={120}
                   />
-                  <YAxis stroke="#6b7280" fontSize={12} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                     {linksData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}

@@ -11,6 +11,12 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     const normalizedStatus = status?.toLowerCase();
 
     switch (normalizedStatus) {
+      case "queued":
+        return {
+          variant: "secondary" as const,
+          color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+          text: "Queued",
+        };
       case "pending":
         return {
           variant: "secondary" as const,

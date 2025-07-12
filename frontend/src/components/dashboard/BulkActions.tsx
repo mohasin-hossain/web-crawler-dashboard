@@ -15,7 +15,7 @@ import { Button } from "../ui/button";
 
 interface BulkActionsProps {
   selectedCount: number;
-  selectedUrls: Url[]; // Add selected URLs to analyze their statuses
+  selectedUrls: Url[];
   onBulkDelete: () => Promise<void>;
   onBulkAnalyze: () => Promise<void>;
   onBulkStop: () => Promise<void>;
@@ -39,30 +39,28 @@ export function BulkActions({
     return null;
   }
 
-  // Analyze selected URLs statuses
-  const processingUrls = selectedUrls.filter(
-    (url) => url.status?.toLowerCase() === "processing"
-  );
-  const pendingUrls = selectedUrls.filter(
-    (url) => url.status?.toLowerCase() === "pending"
-  );
-  const errorUrls = selectedUrls.filter(
-    (url) => url.status?.toLowerCase() === "error"
-  );
-  const unknownUrls = selectedUrls.filter(
-    (url) =>
-      url.status?.toLowerCase() === "unknown" ||
-      !url.status ||
-      url.status?.toLowerCase() === ""
-  );
+  // Group URLs by status
+  const urlsByStatus = selectedUrls.reduce((acc, url) => {
+    const status = url.status?.toLowerCase() || "unknown";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
-  const canStartAnalysis =
-    pendingUrls.length > 0 || errorUrls.length > 0 || unknownUrls.length > 0;
-  const canStopAnalysis = processingUrls.length > 0;
+  // Count URLs by action type
+  const canAnalyzeCount =
+    (urlsByStatus["queued"] || 0) +
+    (urlsByStatus["pending"] || 0) +
+    (urlsByStatus["error"] || 0) +
+    (urlsByStatus["unknown"] || 0);
+
+  const processingCount = urlsByStatus["processing"] || 0;
+
+  // Determine button states
+  const canStartAnalysis = canAnalyzeCount > 0;
+  const canStopAnalysis = processingCount > 0;
 
   const handleBulkAction = async (action: BulkAction) => {
     setPendingAction(action);
-
     try {
       switch (action) {
         case "delete":
@@ -93,22 +91,24 @@ export function BulkActions({
     return loading || pendingAction === action;
   };
 
+  // Get detailed button text
   const getAnalysisButtonText = () => {
-    if (processingUrls.length > 0) {
-      return `${processingUrls.length} Running`;
-    }
-    if (canStartAnalysis) {
-      const count = pendingUrls.length + errorUrls.length + unknownUrls.length;
-      return `Start Analysis (${count})`;
-    }
-    return "Start Analysis";
+    if (!canStartAnalysis) return "No URLs to analyze";
+
+    const parts = [];
+    if (urlsByStatus["queued"]) parts.push(`${urlsByStatus["queued"]} queued`);
+    if (urlsByStatus["pending"])
+      parts.push(`${urlsByStatus["pending"]} pending`);
+    if (urlsByStatus["error"]) parts.push(`${urlsByStatus["error"]} failed`);
+    if (urlsByStatus["unknown"])
+      parts.push(`${urlsByStatus["unknown"]} unknown`);
+
+    return `Start Analysis (${parts.join(", ")})`;
   };
 
   const getStopButtonText = () => {
-    if (processingUrls.length > 0) {
-      return `Stop Analysis (${processingUrls.length})`;
-    }
-    return "Stop Analysis";
+    if (!canStopAnalysis) return "No URLs processing";
+    return `Stop Analysis (${processingCount} processing)`;
   };
 
   return (
@@ -117,11 +117,6 @@ export function BulkActions({
         <div className="flex items-center space-x-4">
           <span className="text-sm font-medium text-blue-900">
             {selectedCount} URL{selectedCount !== 1 ? "s" : ""} selected
-            {processingUrls.length > 0 && (
-              <span className="ml-2 text-xs text-orange-600">
-                ({processingUrls.length} processing)
-              </span>
-            )}
           </span>
 
           <div className="flex items-center space-x-2">
@@ -177,8 +172,14 @@ export function BulkActions({
               variant="outline"
               size="sm"
               onClick={handleDeleteClick}
-              disabled={loading || pendingAction !== null}
-              className="text-red-700 border-red-300 hover:bg-red-50"
+              disabled={
+                loading || pendingAction !== null || processingCount > 0
+              }
+              className={`${
+                processingCount > 0
+                  ? "text-gray-400 border-gray-200 cursor-not-allowed"
+                  : "text-red-700 border-red-300 hover:bg-red-50"
+              }`}
             >
               {isActionLoading("delete") ? (
                 <>
@@ -199,31 +200,25 @@ export function BulkActions({
           variant="ghost"
           size="sm"
           onClick={onClearSelection}
-          disabled={loading || pendingAction !== null}
           className="text-gray-500 hover:text-gray-700"
         >
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Selected URLs</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete {selectedCount} selected URL
-              {selectedCount !== 1 ? "s" : ""}? This action cannot be undone and
-              will remove all analysis data for these URLs.
+              {selectedCount !== 1 ? "s" : ""}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete {selectedCount} URL{selectedCount !== 1 ? "s" : ""}
+            <AlertDialogAction onClick={handleConfirmDelete}>
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -15,7 +15,8 @@ import { useAuth, useAuthActions } from "./stores/authStore";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 0, // Consider data always stale
+      cacheTime: 0, // Disable caching for real-time data
       refetchOnWindowFocus: true,
       retry: 1,
     },

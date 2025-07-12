@@ -16,7 +16,7 @@ export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
       case "failed":
         return <XCircle className="w-4 h-4 text-red-500" />;
       case "started":
-        return <Play className="w-4 h-4 text-yellow-500" />;
+        return <Play className="w-4 h-4 text-blue-500" />;
       default:
         return <Globe className="w-4 h-4 text-gray-500" />;
     }
@@ -34,6 +34,23 @@ export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
         return "analysis started";
       default:
         return "was updated";
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const normalizedStatus = status?.toLowerCase();
+    switch (normalizedStatus) {
+      case "queued":
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400";
+      case "processing":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400";
+      case "completed":
+        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
+      case "error":
+        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400";
     }
   };
 
@@ -84,15 +101,9 @@ export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
                   </div>
                   <div className="flex-shrink-0">
                     <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        activity.status === "completed"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                          : activity.status === "processing"
-                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
-                          : activity.status === "error"
-                          ? "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
-                      }`}
+                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                        activity.status
+                      )}`}
                     >
                       {activity.status}
                     </span>

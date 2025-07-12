@@ -1,6 +1,7 @@
 import {
   Activity,
   CheckCircle,
+  CheckCircle2,
   Clock,
   Globe,
   Minus,
@@ -9,7 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect } from "react";
-import { ProcessingIndicator, StatsCardSkeleton } from "../components/common";
+import { StatsCardSkeleton } from "../components/common";
 import { RecentActivityFeed } from "../components/dashboard/RecentActivityFeed";
 import { useHealth } from "../hooks/useHealth";
 import { useUrlPolling } from "../hooks/useUrlPolling";
@@ -83,13 +84,6 @@ export function DashboardPage() {
       icon: Globe,
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-50 dark:bg-blue-900/20",
-      trend: stats?.trends?.totalUrls
-        ? {
-            value: Math.abs(stats.trends.totalUrls.change),
-            isUpward: stats.trends.totalUrls.isUpward,
-            period: stats.trends.totalUrls.period,
-          }
-        : null,
     },
     {
       name: "Success Rate",
@@ -97,13 +91,6 @@ export function DashboardPage() {
       icon: CheckCircle,
       color: "text-green-600 dark:text-green-400",
       bg: "bg-green-50 dark:bg-green-900/20",
-      trend: stats?.trends?.successRate
-        ? {
-            value: Math.abs(stats.trends.successRate.change),
-            isUpward: stats.trends.successRate.isUpward,
-            period: stats.trends.successRate.period,
-          }
-        : null,
     },
     {
       name: "Processing",
@@ -116,7 +103,7 @@ export function DashboardPage() {
     {
       name: "Completed",
       value: stats?.completed?.toString() || "0",
-      icon: Activity,
+      icon: CheckCircle2,
       color: "text-purple-600 dark:text-purple-400",
       bg: "bg-purple-50 dark:bg-purple-900/20",
     },
@@ -186,15 +173,6 @@ export function DashboardPage() {
                     {health?.database === "connected" ? "Connected" : "Error"}
                   </span>
                 </div>
-
-                {hasProcessingUrls && (
-                  <div className="flex items-center space-x-2">
-                    <ProcessingIndicator />
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {stats?.processing || 0} URLs processing
-                    </span>
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -213,27 +191,10 @@ export function DashboardPage() {
                 key={stat.name}
                 className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200/50 dark:border-gray-700/50 p-4 shadow-sm hover:shadow-md transition-shadow duration-200"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center">
                   <div className={`p-2 rounded-lg ${stat.bg}`}>
                     <Icon className={`w-5 h-5 ${stat.color}`} />
                   </div>
-                  {stat.trend && (
-                    <div className="flex items-center space-x-1">
-                      {getTrendIcon(stat.trend.isUpward, stat.trend.value)}
-                      <span
-                        className={`text-xs font-medium ${
-                          stat.trend.isUpward
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {stat.trend.value}%
-                      </span>
-                    </div>
-                  )}
-                  {stat.showProcessing && (
-                    <ProcessingIndicator className="text-xs" />
-                  )}
                 </div>
 
                 <div className="mt-3">
@@ -243,11 +204,6 @@ export function DashboardPage() {
                   <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                     {stat.value}
                   </p>
-                  {stat.trend && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {stat.trend.period}
-                    </p>
-                  )}
                 </div>
               </div>
             );

@@ -92,7 +92,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 pt-8 pb-6 space-y-2">
+        <nav className="flex-1 px-3 pt-4 pb-6 space-y-2">
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.href;

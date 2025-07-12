@@ -10,7 +10,7 @@ type URLStatus string
 
 const (
 	StatusQueued     URLStatus = "queued"
-	StatusRunning    URLStatus = "running"
+	StatusProcessing URLStatus = "processing"
 	StatusCompleted  URLStatus = "completed"
 	StatusError      URLStatus = "error"
 )

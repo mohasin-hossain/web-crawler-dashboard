@@ -185,13 +185,15 @@
 
   /* For browsers that don't support scrollbar-gutter */
   html {
-    overflow-y: scroll;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    @apply bg-background;
   }
 
-  /* Prevent modal shake by preserving scrollbar space */
+  /* Remove extra padding added by scroll lock, rely on html gutter */
+  body[style*="padding-right"],
   body[data-scroll-locked] {
-    overflow: hidden;
-    padding-right: var(--scrollbar-width, 0px);
+    padding-right: 0 !important;
   }
 
   /* Dialog/Modal specific styles to prevent shaking */
@@ -206,5 +208,11 @@
   /* Prevent content shift when dialog opens */
   [data-state="open"] {
     animation-fill-mode: both;
+  }
+
+  body[data-radix-scroll-lock],
+  body[data-scroll-locked] {
+    /* Remove reserved gutter so no blank bar appears when scroll is locked */
+    scrollbar-gutter: auto !important;
   }
 }

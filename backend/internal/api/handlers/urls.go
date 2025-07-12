@@ -326,7 +326,7 @@ func (h *URLHandler) DeleteURL(c *gin.Context) {
 	}
 
 	// Check if URL is currently being processed
-	if url.Status == models.StatusRunning {
+	if url.Status == models.StatusProcessing {
 		c.JSON(http.StatusConflict, gin.H{
 			"error":   "url_processing",
 			"message": "Cannot delete URL while analysis is running. Stop the analysis first.",
@@ -559,6 +559,7 @@ func (h *URLHandler) GetAnalysisResult(c *gin.Context) {
 		},
 		"broken_links_details": analysis.BrokenLinksDetails,
 		"created_at":           url.CreatedAt,
+		"updated_at":           url.UpdatedAt,
 		"analyzed_at":          analysis.AnalyzedAt,
 	}
 

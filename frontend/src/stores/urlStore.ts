@@ -43,6 +43,14 @@ function getActionFromUrl(url: Url): RecentActivity["action"] {
   return url.status === "completed" ? "completed" : "added";
 }
 
+// Helper function to truncate URL for toast messages
+const truncateUrl = (url: string, maxLength: number = 50): string => {
+  if (url.length <= maxLength) return url;
+  const start = url.substring(0, Math.floor(maxLength / 2));
+  const end = url.substring(url.length - Math.floor(maxLength / 2));
+  return `${start}...${end}`;
+};
+
 interface UrlState {
   // Data state
   urls: Url[];
@@ -266,17 +274,26 @@ export const useUrlStore = create<UrlStore>()(
         });
 
         try {
-          await urlsApi.startAnalysis(id);
+          const response = await urlsApi.startAnalysis(id);
           toast.success("Analysis started!");
 
-          // Update the URL status in the list
+          // Update the URL status in the list using the response
           const updatedUrls = state.urls.map((url) =>
-            url.id === id ? { ...url, status: "processing" as const } : url
+            url.id === id
+              ? {
+                  ...url,
+                  status: response.status,
+                  updated_at: response.updated_at,
+                }
+              : url
           );
           set({
             urls: updatedUrls,
             loadingStates: { ...state.loadingStates, analyze: false },
           });
+
+          // Trigger an immediate refresh to ensure we have the latest data
+          await get().refreshUrls();
         } catch (error: any) {
           set({
             error: error.message,
@@ -367,23 +384,43 @@ export const useUrlStore = create<UrlStore>()(
         });
 
         try {
-          const result = await urlsApi.bulkAnalyze(urlIds);
-          toast.success(`Started analysis for ${result.processed} URLs`);
+          // Filter URLs to only include those that can be analyzed
+          const validStatuses = ["queued", "pending", "error", "unknown", ""];
+          const validUrlIds = urlIds.filter((id) => {
+            const url = state.urls.find((u) => u.id === id);
+            return (
+              url && validStatuses.includes(url.status?.toLowerCase() || "")
+            );
+          });
 
-          if (result.failed > 0) {
-            toast.warning(`Failed to start analysis for ${result.failed} URLs`);
+          if (validUrlIds.length === 0) {
+            toast.info("No URLs in valid state for analysis");
+            set({
+              loadingStates: { ...state.loadingStates, bulk: false },
+            });
+            return;
           }
 
-          // Update statuses and refresh
+          const result = await urlsApi.bulkAnalyze(validUrlIds);
+
+          if (result.success) {
+            toast.success(result.message);
+          } else {
+            toast.error(result.message);
+          }
+
+          // Refresh the list
           await get().refreshUrls();
 
-          set({ loadingStates: { ...state.loadingStates, bulk: false } });
+          set({
+            loadingStates: { ...state.loadingStates, bulk: false },
+          });
         } catch (error: any) {
           set({
             error: error.message,
             loadingStates: { ...state.loadingStates, bulk: false },
           });
-          toast.error("Bulk analyze failed: " + error.message);
+          toast.error("Failed to start analysis: " + error.message);
         }
       },
 
@@ -524,8 +561,6 @@ export const useUrlStore = create<UrlStore>()(
         const successRate =
           analyzed > 0 ? Math.round((completed / analyzed) * 100) : 0;
 
-        // Remove average analysis time calculation - not needed
-
         // Generate recent activity (last 10 actions based on timestamps)
         const recentActivity = urls
           .sort(
@@ -542,14 +577,6 @@ export const useUrlStore = create<UrlStore>()(
             status: url.status,
           }));
 
-        // Generate mock trend data (in a real app, this would come from historical data)
-        const generateTrend = (currentValue: number): any => ({
-          value: currentValue,
-          change: Math.floor(Math.random() * 20) - 10, // Random change between -10 and +10
-          isUpward: Math.random() > 0.5,
-          period: "vs last week",
-        });
-
         const stats: UrlStats = {
           total,
           pending,
@@ -558,10 +585,6 @@ export const useUrlStore = create<UrlStore>()(
           error,
           successRate,
           recentActivity,
-          trends: {
-            totalUrls: generateTrend(total),
-            successRate: generateTrend(successRate),
-          },
         };
 
         set({ stats });
@@ -576,36 +599,46 @@ export const useUrlStore = create<UrlStore>()(
           return;
         }
 
-        // Create a map of polled URLs for quick lookup
-        const polledUrlsMap = new Map(polledUrls.map((url) => [url.id, url]));
+        // Create a map of current URLs for quick lookup
+        const currentUrlsMap = new Map(state.urls.map((url) => [url.id, url]));
 
         // Update existing URLs with polled data while preserving order
         const updatedUrls = state.urls.map((storeUrl) => {
-          const polledUrl = polledUrlsMap.get(storeUrl.id);
-          // Update if polled data exists and is newer
-          if (
-            polledUrl &&
-            new Date(polledUrl.updated_at) >= new Date(storeUrl.updated_at)
-          ) {
-            return polledUrl;
+          const polledUrl = polledUrls.find((url) => url.id === storeUrl.id);
+          if (polledUrl) {
+            // Check if status has changed
+            const statusChanged = storeUrl.status !== polledUrl.status;
+            const newUrl = {
+              ...storeUrl,
+              ...polledUrl,
+              // Preserve selection state
+              selected: storeUrl.selected,
+            };
+
+            // Show toast notification if status changed to completed or error
+            if (statusChanged) {
+              if (polledUrl.status === "completed") {
+                toast.success(
+                  `Analysis completed for: ${truncateUrl(polledUrl.url)}`
+                );
+              } else if (polledUrl.status === "error") {
+                toast.error(
+                  `Analysis failed for: ${truncateUrl(polledUrl.url)}`
+                );
+              }
+            }
+
+            return newUrl;
           }
           return storeUrl;
         });
 
-        // Only update store if there are actual changes
-        const hasChanges = updatedUrls.some((url, index) => {
-          const originalUrl = state.urls[index];
-          return (
-            !originalUrl ||
-            url.status !== originalUrl.status ||
-            url.updated_at !== originalUrl.updated_at
-          );
-        });
-
+        // Only update state if there are actual changes
+        const hasChanges =
+          JSON.stringify(updatedUrls) !== JSON.stringify(state.urls);
         if (hasChanges) {
           set({ urls: updatedUrls });
-
-          // Recalculate stats with updated data
+          // Recalculate stats since we have new data
           get().calculateStats();
         }
       },

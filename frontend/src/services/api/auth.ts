@@ -46,7 +46,7 @@ export const userStorage = {
     }
   },
 
-  set: (user: any): void => {
+  set: (user: unknown): void => {
     try {
       localStorage.setItem("auth_user", JSON.stringify(user));
     } catch (error) {

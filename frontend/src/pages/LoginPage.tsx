@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import { Globe } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { LoginForm } from "../components/forms/LoginForm";
 import { RegisterForm } from "../components/forms/RegisterForm";
+import { NOTIFICATIONS } from "../lib/constants";
 import { useAuth } from "../stores/authStore";
 
 export function LoginPage() {
@@ -18,29 +19,27 @@ export function LoginPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = useCallback(() => {
     toast.success("Login successful!", {
-      duration: 3000,
+      duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
     });
-
     setTimeout(() => {
       navigate("/urls", { replace: true });
-    }, 1500);
-  };
+    }, NOTIFICATIONS.NAVIGATION_DELAY.SUCCESS);
+  }, [navigate]);
 
-  const handleRegisterSuccess = () => {
+  const handleRegisterSuccess = useCallback(() => {
     toast.success("Account created successfully!", {
-      duration: 3000,
+      duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
     });
-
     setTimeout(() => {
       navigate("/urls", { replace: true });
-    }, 1500);
-  };
+    }, NOTIFICATIONS.NAVIGATION_DELAY.SUCCESS);
+  }, [navigate]);
 
-  const handleError = (error: string) => {
-    toast.error(error);
-  };
+  const handleError = useCallback((error: string) => {
+    toast.error(error, { duration: NOTIFICATIONS.TOAST_DURATION.NORMAL });
+  }, []);
 
   if (isAuthenticated) {
     return null;
@@ -67,7 +66,6 @@ export function LoginPage() {
               whileHover={{
                 scale: 1.1,
                 rotate: 10,
-                shadow: "0 20px 40px rgba(59, 130, 246, 0.4)",
               }}
               whileTap={{ scale: 0.95 }}
               transition={{ duration: 0.2 }}

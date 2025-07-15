@@ -30,11 +30,13 @@ export function useHealth(intervalMs?: number) {
         error: null,
         lastChecked: new Date(),
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to check health";
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: error.message || "Failed to check health",
+        error: errorMessage,
         lastChecked: new Date(),
       }));
     }

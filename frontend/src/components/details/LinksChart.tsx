@@ -1,5 +1,6 @@
 import { BarChart, PieChart, TrendingUp } from "lucide-react";
 import { useState } from "react";
+import type { LegendPayload } from "recharts";
 import {
   Bar,
   Cell,
@@ -12,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { UI } from "../../lib/constants";
 import type { AnalysisResult } from "../../types/url";
 
 interface LinksChartProps {
@@ -21,17 +23,37 @@ interface LinksChartProps {
 export function LinksChart({ analysis }: LinksChartProps) {
   const [chartType, setChartType] = useState<"bar" | "donut">("bar");
 
+  const COLOR_INTERNAL = UI.COLORS.CHART.INTERNAL;
+  const COLOR_EXTERNAL = UI.COLORS.CHART.EXTERNAL;
+  const INSIGHT_COLORS = {
+    info: {
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
+    },
+    warning: {
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-50",
+      borderColor: "border-yellow-200",
+    },
+    success: {
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
+    },
+  };
+
   const linksData = [
     {
       type: "Internal Links",
       count: analysis.internal_links || 0,
-      color: "#3B82F6",
+      color: COLOR_INTERNAL,
       percentage: 0,
     },
     {
       type: "External Links",
       count: analysis.external_links || 0,
-      color: "#10B981",
+      color: COLOR_EXTERNAL,
       percentage: 0,
     },
   ];
@@ -44,20 +66,17 @@ export function LinksChart({ analysis }: LinksChartProps) {
       totalLinks > 0 ? Math.round((item.count / totalLinks) * 100) : 0;
   });
 
-  const CustomTooltip = ({
-    active,
-    payload,
-    label,
-  }: {
-    active?: boolean;
-    payload?: Array<{ value: number; payload: any }>;
-    label?: string;
-  }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
+  // Fix: Use correct destructuring for recharts TooltipProps
+  const CustomTooltip = (props: any) => {
+    if (props.active && props.payload && props.payload.length) {
+      const data = props.payload[0].payload as {
+        count: number;
+        percentage: number;
+        type: string;
+      };
       return (
         <div className="bg-white p-3 border rounded-lg shadow-lg">
-          <p className="font-medium">{label || data.type}</p>
+          <p className="font-medium">{props.label || data.type}</p>
           <p className="text-sm text-gray-600">
             Count: {data.count} ({data.percentage}%)
           </p>
@@ -67,15 +86,13 @@ export function LinksChart({ analysis }: LinksChartProps) {
     return null;
   };
 
-  const CustomPieTooltip = ({
-    active,
-    payload,
-  }: {
-    active?: boolean;
-    payload?: Array<{ value: number; payload: any }>;
-  }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
+  const CustomPieTooltip = (props: any) => {
+    if (props.active && props.payload && props.payload.length) {
+      const data = props.payload[0].payload as {
+        count: number;
+        percentage: number;
+        type: string;
+      };
       return (
         <div className="bg-white p-3 border rounded-lg shadow-lg">
           <p className="font-medium">{data.type}</p>
@@ -202,11 +219,15 @@ export function LinksChart({ analysis }: LinksChartProps) {
                   maxBarSize={100}
                   layout="vertical"
                 >
-                  <XAxis type="number" stroke="#6b7280" fontSize={12} />
+                  <XAxis
+                    type="number"
+                    stroke={UI.COLORS.CHART.AXIS}
+                    fontSize={12}
+                  />
                   <YAxis
                     dataKey="type"
                     type="category"
-                    stroke="#6b7280"
+                    stroke={UI.COLORS.CHART.AXIS}
                     fontSize={12}
                     width={120}
                   />
@@ -234,10 +255,12 @@ export function LinksChart({ analysis }: LinksChartProps) {
                   </Pie>
                   <Tooltip content={<CustomPieTooltip />} />
                   <Legend
-                    formatter={(value, entry: any) => (
-                      <span style={{ color: entry.color }}>
-                        {value}: {entry.payload?.count || 0} (
-                        {entry.payload?.percentage || 0}%)
+                    formatter={(value: string, entry: LegendPayload) => (
+                      <span style={{ color: entry.color || undefined }}>
+                        {value}:{" "}
+                        {entry.payload && (entry.payload as any).count
+                          ? (entry.payload as any).count
+                          : 0}
                       </span>
                     )}
                   />

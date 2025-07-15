@@ -1,3 +1,4 @@
+import type { AxiosError } from "axios";
 import type {
   AnalysisResult,
   BulkActionRequest,
@@ -12,9 +13,13 @@ import type {
 import { apiClient } from "./client";
 
 // Helper function to handle API errors
-const handleApiError = (error: any): string => {
-  if (error.response?.data?.message) {
-    return error.response.data.message;
+const handleApiError = (error: AxiosError): string => {
+  if (
+    error.response?.data &&
+    typeof error.response.data === "object" &&
+    "message" in error.response.data
+  ) {
+    return (error.response.data as { message: string }).message;
   }
   if (error.message) {
     return error.message;
@@ -39,8 +44,8 @@ export const urlsApi = {
 
       const response = await apiClient.get<UrlsResponse>(url);
       return response.data; // Backend returns direct response, not wrapped in 'data'
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 
@@ -49,8 +54,8 @@ export const urlsApi = {
     try {
       const response = await apiClient.get<Url>(`/api/urls/${id}`);
       return response.data;
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 
@@ -59,8 +64,8 @@ export const urlsApi = {
     try {
       const response = await apiClient.post<UrlResponse>("/api/urls", data);
       return response.data;
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 
@@ -68,8 +73,8 @@ export const urlsApi = {
   deleteUrl: async (id: number): Promise<void> => {
     try {
       await apiClient.delete(`/api/urls/${id}`);
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 
@@ -80,8 +85,8 @@ export const urlsApi = {
         `/api/urls/${id}/analyze`
       );
       return response.data;
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 
@@ -92,8 +97,8 @@ export const urlsApi = {
         `/api/urls/${id}/stop`
       );
       return response.data;
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 
@@ -104,8 +109,8 @@ export const urlsApi = {
         `/api/urls/${id}/rerun`
       );
       return response.data;
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 
@@ -116,8 +121,8 @@ export const urlsApi = {
         `/api/urls/${id}/result`
       );
       return response.data;
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 
@@ -147,7 +152,7 @@ export const urlsApi = {
             break;
         }
         processed++;
-      } catch (error) {
+      } catch (error: unknown) {
         failed++;
         console.error(`Failed to ${action} URL ${urlId}:`, error);
       }

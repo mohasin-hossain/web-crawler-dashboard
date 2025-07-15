@@ -1,29 +1,14 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Eye,
-  Globe,
-} from "lucide-react";
-import { useState } from "react";
-import { urlsApi } from "../../services/api/urls";
+import { Globe } from "lucide-react";
+import { useCallback, useState } from "react";
 import type { Url, UrlTableFilters } from "../../types/url";
 import { TableSkeleton } from "../common";
-import { Button } from "../ui/button";
-import { Checkbox } from "../ui/checkbox";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../ui/table";
-import { StatusBadge } from "./StatusBadge";
+import { Table, TableBody } from "../ui/table";
+import { UrlTableHeader } from "./UrlTableHeader";
+import { UrlTableMobileCard } from "./UrlTableMobileCard";
+import { UrlTablePagination } from "./UrlTablePagination";
+import { UrlTableRow } from "./UrlTableRow";
+import type { SortDirection, SortField } from "./UrlTableSorting";
+import { sortUrls } from "./UrlTableSorting";
 
 interface UrlTableProps {
   urls: Url[];
@@ -44,19 +29,8 @@ interface UrlTableProps {
   onViewDetails: (url: Url) => void;
 }
 
-type SortField =
-  | "url"
-  | "title"
-  | "status"
-  | "created_at"
-  | "internal_links"
-  | "external_links"
-  | "broken_links"
-  | "html_version";
-type SortDirection = "asc" | "desc";
-
 export function UrlTable({
-  urls,
+  urls = [],
   pagination,
   selectedUrls,
   loading = false,
@@ -78,132 +52,27 @@ export function UrlTable({
   const isPartiallySelected =
     safeUrls.some((url) => selectedUrls.has(url.id)) && !isAllSelected;
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (isAllSelected) {
       onDeselectAll();
     } else {
       onSelectAll();
     }
-  };
+  }, [isAllSelected, onSelectAll, onDeselectAll]);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
+  const handleSort = useCallback(
+    (field: SortField) => {
+      if (sortField === field) {
+        setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      } else {
+        setSortField(field);
+        setSortDirection("asc");
+      }
+    },
+    [sortField, sortDirection]
+  );
 
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) {
-      return <ArrowUpDown className="h-4 w-4" />;
-    }
-    return sortDirection === "asc" ? (
-      <ArrowUp className="h-4 w-4" />
-    ) : (
-      <ArrowDown className="h-4 w-4" />
-    );
-  };
-
-  const sortedUrls = [...safeUrls].sort((a, b) => {
-    let aValue: any = a[sortField];
-    let bValue: any = b[sortField];
-
-    // Handle null/undefined values
-    if (aValue === null || aValue === undefined) aValue = "";
-    if (bValue === null || bValue === undefined) bValue = "";
-
-    // Convert to strings for comparison if needed
-    if (typeof aValue === "string") aValue = aValue.toLowerCase();
-    if (typeof bValue === "string") bValue = bValue.toLowerCase();
-
-    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatUrl = (url: string) => {
-    return urlsApi.formatUrlForDisplay(url);
-  };
-
-  const handleRowClick = (url: Url, event: React.MouseEvent) => {
-    // Don't trigger row click if clicking on checkbox
-    if ((event.target as HTMLElement).closest('input[type="checkbox"]')) {
-      return;
-    }
-    onViewDetails(url);
-  };
-
-  const renderPagination = () => {
-    if (!pagination) {
-      return null;
-    }
-
-    const { page, totalPages } = pagination;
-
-    return (
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-sm text-gray-500 text-center sm:text-left">
-          Showing {safeUrls.length} of {pagination.total || 0} URLs
-        </div>
-
-        <div className="flex items-center space-x-1 sm:space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(1)}
-            disabled={page === 1 || loading}
-            className="hidden sm:flex"
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1 || loading}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-
-          <span className="text-sm px-2">
-            {page} / {totalPages}
-          </span>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page === totalPages || loading}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(totalPages)}
-            disabled={page === totalPages || loading}
-            className="hidden sm:flex"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    );
-  };
+  const sortedUrls = sortUrls(safeUrls, sortField, sortDirection);
 
   // Show skeleton loader when loading and no URLs
   if (loading && safeUrls.length === 0) {
@@ -227,114 +96,17 @@ export function UrlTable({
 
   return (
     <div className="space-y-4">
-      {/* Show loading overlay when refreshing existing data */}
-      {/* Removed ProcessingIndicator overlay as per user request */}
-      {/* {loading && safeUrls.length > 0 && (
-        <div className="relative">
-          <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 rounded-lg flex items-center justify-center">
-            <ProcessingIndicator url="Refreshing URLs..." />
-          </div>
-        </div>
-      )} */}
-
       {/* Mobile Card View */}
       <div className="block lg:hidden space-y-4">
-        {sortedUrls.map((url) => (
-          <div
+        {sortedUrls.map((url: Url) => (
+          <UrlTableMobileCard
             key={url.id}
-            className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 shadow-sm flex flex-col gap-2 transition hover:shadow-md cursor-pointer"
-            onClick={(e) => handleRowClick(url, e)}
-          >
-            {/* Header: Status, Date, Checkbox, Eye, HTML Version */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Checkbox
-                  checked={selectedUrls.has(url.id)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      onUrlSelect(url.id);
-                    } else {
-                      onUrlDeselect(url.id);
-                    }
-                  }}
-                  aria-label={`Select ${url.url}`}
-                  className="h-4 w-4 mr-1"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <StatusBadge
-                  status={url.status}
-                  className="text-xs px-2 py-0.5 rounded-full"
-                />
-                <span className="text-xs text-gray-400 ml-1 truncate">
-                  {formatDate(url.created_at)}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                {url.html_version && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-900 text-gray-500 font-mono border border-gray-200 dark:border-gray-700 mr-1">
-                    {url.html_version}
-                  </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onViewDetails(url);
-                  }}
-                  className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* URL & Title */}
-            <div className="flex flex-col min-w-0">
-              <span
-                className="font-semibold text-blue-700 dark:text-blue-400 text-sm truncate"
-                title={url.url}
-              >
-                {formatUrl(url.url)}
-              </span>
-              {url.title && (
-                <span
-                  className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5"
-                  title={url.title}
-                >
-                  {url.title}
-                </span>
-              )}
-            </div>
-
-            {/* Stats Row */}
-            <div className="flex justify-between items-center text-center mt-1 mb-1 divide-x divide-gray-200 dark:divide-gray-700 bg-gray-50 dark:bg-gray-900 rounded-md">
-              <div className="flex-1 px-1">
-                <div className="text-base font-semibold text-gray-900 dark:text-white">
-                  {url.internal_links}
-                </div>
-                <div className="text-[11px] text-gray-400">Internal</div>
-              </div>
-              <div className="flex-1 px-1">
-                <div className="text-base font-semibold text-gray-900 dark:text-white">
-                  {url.external_links}
-                </div>
-                <div className="text-[11px] text-gray-400">External</div>
-              </div>
-              <div className="flex-1 px-1">
-                <div
-                  className={`text-base font-semibold ${
-                    url.broken_links > 0
-                      ? "text-red-600"
-                      : "text-gray-900 dark:text-white"
-                  }`}
-                >
-                  {url.broken_links}
-                </div>
-                <div className="text-[11px] text-gray-400">Broken</div>
-              </div>
-            </div>
-          </div>
+            url={url}
+            isSelected={selectedUrls.has(url.id)}
+            onSelect={onUrlSelect}
+            onDeselect={onUrlDeselect}
+            onViewDetails={onViewDetails}
+          />
         ))}
       </div>
 
@@ -342,187 +114,40 @@ export function UrlTable({
       <div className="hidden lg:block border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={isAllSelected}
-                    ref={(el) => {
-                      if (el) {
-                        const checkbox = el.querySelector(
-                          'input[type="checkbox"]'
-                        ) as HTMLInputElement;
-                        if (checkbox)
-                          checkbox.indeterminate = isPartiallySelected;
-                      }
-                    }}
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Select all URLs"
-                  />
-                </TableHead>
-
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("url")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    URL {getSortIcon("url")}
-                  </Button>
-                </TableHead>
-
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("title")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    Title {getSortIcon("title")}
-                  </Button>
-                </TableHead>
-
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("html_version")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    HTML Version {getSortIcon("html_version")}
-                  </Button>
-                </TableHead>
-
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("status")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    Status {getSortIcon("status")}
-                  </Button>
-                </TableHead>
-
-                <TableHead className="text-center">
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("internal_links")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    Internal {getSortIcon("internal_links")}
-                  </Button>
-                </TableHead>
-
-                <TableHead className="text-center">
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("external_links")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    External {getSortIcon("external_links")}
-                  </Button>
-                </TableHead>
-
-                <TableHead className="text-center">
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("broken_links")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    Broken {getSortIcon("broken_links")}
-                  </Button>
-                </TableHead>
-
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("created_at")}
-                    className="h-auto p-0 font-semibold"
-                  >
-                    Created {getSortIcon("created_at")}
-                  </Button>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-
+            <UrlTableHeader
+              isAllSelected={isAllSelected}
+              isPartiallySelected={isPartiallySelected}
+              onSelectAll={handleSelectAll}
+              onSort={handleSort}
+              sortField={sortField}
+              sortDirection={sortDirection}
+            />
             <TableBody>
-              {sortedUrls.map((url) => (
-                <TableRow
+              {sortedUrls.map((url: Url) => (
+                <UrlTableRow
                   key={url.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => handleRowClick(url, e)}
-                >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedUrls.has(url.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          onUrlSelect(url.id);
-                        } else {
-                          onUrlDeselect(url.id);
-                        }
-                      }}
-                      aria-label={`Select ${url.url}`}
-                    />
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className="max-w-[200px] truncate text-blue-600 hover:text-blue-800"
-                        title={url.url}
-                      >
-                        {formatUrl(url.url)}
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <span
-                      className="max-w-[150px] truncate block"
-                      title={url.title || "No title"}
-                    >
-                      {url.title || "No title"}
-                    </span>
-                  </TableCell>
-
-                  <TableCell>
-                    <span className="text-sm text-gray-600">
-                      {url.html_version || "—"}
-                    </span>
-                  </TableCell>
-
-                  <TableCell>
-                    <StatusBadge status={url.status} />
-                  </TableCell>
-
-                  <TableCell className="text-center">
-                    {url.internal_links}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {url.external_links}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <span
-                      className={
-                        url.broken_links > 0 ? "text-red-600 font-medium" : ""
-                      }
-                    >
-                      {url.broken_links}
-                    </span>
-                  </TableCell>
-
-                  <TableCell>
-                    <span className="text-sm text-gray-500">
-                      {formatDate(url.created_at)}
-                    </span>
-                  </TableCell>
-                </TableRow>
+                  url={url}
+                  isSelected={selectedUrls.has(url.id)}
+                  onSelect={onUrlSelect}
+                  onDeselect={onUrlDeselect}
+                  onViewDetails={onViewDetails}
+                />
               ))}
             </TableBody>
           </Table>
         </div>
       </div>
 
-      {pagination && pagination.totalPages > 1 && renderPagination()}
+      {pagination && pagination.totalPages > 1 && (
+        <UrlTablePagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          urlsCount={safeUrls.length}
+          loading={loading}
+          onPageChange={onPageChange}
+        />
+      )}
     </div>
   );
 }

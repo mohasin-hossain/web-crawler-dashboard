@@ -49,16 +49,23 @@ export const useAuthStore = create<AuthStore>()(
             isInitialized: true,
           });
           console.log("Auth store: Login state updated successfully");
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error("Auth store: Login error caught:", error);
           let errorMessage = "Login failed";
 
           // Handle specific error responses from backend
-          if (error.response?.data?.message) {
-            errorMessage = error.response.data.message;
-          } else if (error.response?.data?.error) {
-            errorMessage = error.response.data.error;
-          } else if (error.message) {
+          if (error && typeof error === "object" && "response" in error) {
+            const response = (
+              error as {
+                response?: { data?: { message?: string; error?: string } };
+              }
+            ).response;
+            if (response?.data?.message) {
+              errorMessage = response.data.message;
+            } else if (response?.data?.error) {
+              errorMessage = response.data.error;
+            }
+          } else if (error instanceof Error) {
             errorMessage = error.message;
           }
 
@@ -107,15 +114,22 @@ export const useAuthStore = create<AuthStore>()(
             error: null,
             isInitialized: true,
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           let errorMessage = "Registration failed";
 
           // Handle specific error responses from backend
-          if (error.response?.data?.message) {
-            errorMessage = error.response.data.message;
-          } else if (error.response?.data?.error) {
-            errorMessage = error.response.data.error;
-          } else if (error.message) {
+          if (error && typeof error === "object" && "response" in error) {
+            const response = (
+              error as {
+                response?: { data?: { message?: string; error?: string } };
+              }
+            ).response;
+            if (response?.data?.message) {
+              errorMessage = response.data.message;
+            } else if (response?.data?.error) {
+              errorMessage = response.data.error;
+            }
+          } else if (error instanceof Error) {
             errorMessage = error.message;
           }
 

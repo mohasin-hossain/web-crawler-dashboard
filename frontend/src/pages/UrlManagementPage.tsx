@@ -1,5 +1,5 @@
 import { Link as LinkIcon, Plus, XCircle } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { BulkActions } from "../components/dashboard/BulkActions";
@@ -19,6 +19,7 @@ export function UrlManagementPage() {
 
   const addUrlInputRef = useRef<HTMLInputElement>(null);
   const searchFocusRef = useRef<{ focus: () => void }>(null);
+  const [autoSelectNewest, setAutoSelectNewest] = useState(false);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -46,7 +47,7 @@ export function UrlManagementPage() {
   }, [handleKeyDown]);
 
   // Safely extract data with proper null/undefined handling
-  const urls = urlStoreData.urls || [];
+  const urls = useMemo(() => urlStoreData.urls || [], [urlStoreData.urls]);
   const pagination = urlStoreData.pagination;
   const filters = urlStoreData.filters;
   const selectedUrls = urlStoreData.selectedUrls || new Set();
@@ -57,7 +58,6 @@ export function UrlManagementPage() {
   const {
     fetchUrls,
     createUrl,
-    setFilters,
     applyFilters,
     resetFilters,
     setPage,
@@ -75,7 +75,7 @@ export function UrlManagementPage() {
 
   // Use smart polling instead of manual intervals
   const {
-    urls: polledUrls,
+    urls: polledUrls = [],
     isLoading: pollingLoading,
     refetch: refetchPolling,
   } = useUrlPolling({
@@ -91,7 +91,7 @@ export function UrlManagementPage() {
 
   // Sync polling data with store whenever polled data changes
   useEffect(() => {
-    if (polledUrls && polledUrls.length > 0) {
+    if (Array.isArray(polledUrls) && polledUrls.length > 0) {
       syncUrlsData(polledUrls);
       // Force a refresh of the table data
       fetchUrls({
@@ -143,6 +143,7 @@ export function UrlManagementPage() {
 
   const handleAddUrlSuccess = () => {
     if (isAuthenticated) {
+      setAutoSelectNewest(true);
       fetchUrls(); // Refresh the list
       refetchPolling(); // Also refresh polling data
     }
@@ -156,6 +157,18 @@ export function UrlManagementPage() {
   const handleViewDetails = (url: Url) => {
     navigate(`/urls/${url.id}`);
   };
+
+  // Auto-select the newest URL after add
+  useEffect(() => {
+    if (autoSelectNewest && urls.length > 0) {
+      const newest = [...urls].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )[0];
+      if (newest) selectUrl(newest.id);
+      setAutoSelectNewest(false);
+    }
+  }, [autoSelectNewest, urls, selectUrl]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -235,8 +248,27 @@ export function UrlManagementPage() {
               <BulkActions
                 selectedCount={selectedUrls.size}
                 selectedUrls={selectedUrlObjects}
-                onBulkDelete={() => bulkDelete(Array.from(selectedUrls))}
-                onBulkAnalyze={() => bulkAnalyze(Array.from(selectedUrls))}
+                onBulkDelete={async (deletedUrls) => {
+                  await bulkDelete(deletedUrls.map((url) => url.id));
+                  // Remove only the deleted URLs from selection
+                  deletedUrls.forEach((url) => deselectUrl(url.id));
+                  // Always refresh the list and polling after delete
+                  fetchUrls();
+                  refetchPolling();
+                }}
+                onBulkAnalyze={() => {
+                  // Only analyze eligible URLs
+                  const analyzable = selectedUrlObjects.filter((url) => {
+                    const status = url.status?.toLowerCase() || "";
+                    return (
+                      status === "pending" ||
+                      status === "queued" ||
+                      status === "error" ||
+                      status === "unknown"
+                    );
+                  });
+                  return bulkAnalyze(analyzable.map((url) => url.id));
+                }}
                 onBulkStop={() => bulkStop(Array.from(selectedUrls))}
                 onBulkRerun={() => {
                   const rerunIds = selectedUrlObjects
@@ -268,7 +300,7 @@ export function UrlManagementPage() {
                 loading={loadingStates?.list || pollingLoading}
                 onUrlSelect={selectUrl}
                 onUrlDeselect={deselectUrl}
-                onSelectAll={selectAllUrls}
+                onSelectAll={() => selectAllUrls(urls.map((url) => url.id))}
                 onDeselectAll={deselectAllUrls}
                 onPageChange={setPage}
                 onViewDetails={handleViewDetails}

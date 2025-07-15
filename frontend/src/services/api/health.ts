@@ -13,8 +13,8 @@ export const healthService = {
     try {
       const response = await apiClient.get<HealthCheckResponse>("/api/health");
       return response.data;
-    } catch (error: any) {
-      throw new Error(handleApiError(error));
+    } catch (error: unknown) {
+      throw new Error(handleApiError(error as import("axios").AxiosError));
     }
   },
 };

@@ -1,6 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import type { ErrorInfo, ReactNode } from "react";
 import { Component } from "react";
+import { ERROR_MESSAGES } from "../../lib/constants";
 import { Button } from "../ui/button";
 
 interface Props {
@@ -55,17 +56,16 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Something went wrong
+              {ERROR_MESSAGES.GENERIC.UNKNOWN}
             </h2>
 
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              An unexpected error occurred. Please try refreshing the page or
-              contact support if the problem persists.
+              {ERROR_MESSAGES.GENERIC.UNKNOWN_DESCRIPTION}
             </p>
 
             <div className="space-y-2">
               <Button onClick={this.handleReset} className="w-full">
-                Try Again
+                {ERROR_MESSAGES.GENERIC.TRY_AGAIN}
               </Button>
 
               <Button
@@ -73,14 +73,14 @@ export class ErrorBoundary extends Component<Props, State> {
                 onClick={() => window.location.reload()}
                 className="w-full"
               >
-                Refresh Page
+                {ERROR_MESSAGES.GENERIC.REFRESH_PAGE}
               </Button>
             </div>
 
             {process.env.NODE_ENV === "development" && this.state.error && (
               <details className="mt-4 text-left">
                 <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-                  Error Details (Development)
+                  {ERROR_MESSAGES.GENERIC.ERROR_DETAILS}
                 </summary>
                 <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs overflow-auto">
                   <p className="font-mono text-red-600 dark:text-red-400">

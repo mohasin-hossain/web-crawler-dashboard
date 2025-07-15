@@ -4,9 +4,6 @@ import {
   CheckCircle2,
   Clock,
   Globe,
-  Minus,
-  TrendingDown,
-  TrendingUp,
   XCircle,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -66,15 +63,6 @@ export function DashboardPage() {
       </div>
     );
   }
-
-  const getTrendIcon = (isUpward: boolean, change: number) => {
-    if (change === 0) return <Minus className="w-3 h-3 text-gray-400" />;
-    return isUpward ? (
-      <TrendingUp className="w-3 h-3 text-green-500" />
-    ) : (
-      <TrendingDown className="w-3 h-3 text-red-500" />
-    );
-  };
 
   // Enhanced stats cards with trends
   const statsCards = [

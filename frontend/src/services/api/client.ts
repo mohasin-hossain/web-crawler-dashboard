@@ -1,4 +1,4 @@
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 
 // Create the axios instance with configuration
 export const apiClient = axios.create({
@@ -12,11 +12,11 @@ export const apiClient = axios.create({
 // Token refresh queue
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (value: any) => void;
-  reject: (reason: any) => void;
+  resolve: (value: string | null) => void;
+  reject: (reason: unknown) => void;
 }> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
       reject(error);
@@ -28,9 +28,14 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+// Extended request config type
+interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
-  (config: any) => {
+  (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem("auth_token");
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -54,7 +59,7 @@ apiClient.interceptors.response.use(
       error.response?.data
     );
 
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as ExtendedAxiosRequestConfig;
 
     // Handle 401 Unauthorized responses
     // Don't attempt token refresh for authentication endpoints
@@ -135,8 +140,11 @@ apiClient.interceptors.response.use(
         errorData.message || errorData.error || "An error occurred"
       );
       enhancedError.name = error.name;
-      (enhancedError as any).response = error.response;
-      (enhancedError as any).config = error.config;
+      (
+        enhancedError as Error & { response: unknown; config: unknown }
+      ).response = error.response;
+      (enhancedError as Error & { response: unknown; config: unknown }).config =
+        error.config;
 
       console.log("API Client: Enhanced error created:", enhancedError.message);
       return Promise.reject(enhancedError);
@@ -197,8 +205,10 @@ apiClient.interceptors.response.use(
     console.log("API Client: HTTP error:", statusCode, errorMessage);
     const httpError = new Error(errorMessage);
     httpError.name = "HttpError";
-    (httpError as any).response = error.response;
-    (httpError as any).config = error.config;
+    (httpError as Error & { response: unknown; config: unknown }).response =
+      error.response;
+    (httpError as Error & { response: unknown; config: unknown }).config =
+      error.config;
 
     return Promise.reject(httpError);
   }
@@ -235,5 +245,5 @@ export interface ApiResponse<T> {
 export interface ApiError {
   error: string;
   message: string;
-  details?: any;
+  details?: unknown;
 }

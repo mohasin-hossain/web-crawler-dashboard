@@ -1,11 +1,7 @@
 import { motion } from "framer-motion";
 import { Globe } from "lucide-react";
 
-interface HeaderProps {
-  sidebarCollapsed: boolean;
-}
-
-export function Header({ sidebarCollapsed: _ }: HeaderProps) {
+export function Header() {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {

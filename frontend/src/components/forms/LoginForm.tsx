@@ -1,7 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
+import { NOTIFICATIONS } from "../../lib/constants";
+import { handleFormError } from "../../lib/errorHandling";
 import { useAuth, useAuthActions } from "../../stores/authStore";
 import type { LoginRequest } from "../../types/auth";
 import { Button } from "../ui/button";
@@ -50,32 +53,27 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
     clearError();
   }, [clearError]);
 
-  // Clear auth errors when form values change
+  const watchedFields = form.watch();
   useEffect(() => {
     if (error) {
       clearError();
     }
-  }, [form.watch(), clearError, error]);
+  }, [watchedFields, clearError, error]);
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      console.log("Login attempt started");
       const loginData: LoginRequest = {
         email: data.email,
         password: data.password,
       };
-
       await login(loginData);
-      console.log("Login successful");
-
-      // If we get here, login was successful
       onSuccess?.();
-    } catch (error: any) {
-      console.error("Login error caught in form:", error);
-      // Error is already handled in the auth store
-      // The isSubmitting state should be reset there
-      // Just call the onError callback if provided
-      onError?.(error.message || "Login failed");
+    } catch (error: unknown) {
+      const errorMessage = handleFormError(error, form.setError);
+      onError?.(errorMessage);
+      toast.error(errorMessage, {
+        duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+      });
     }
   };
 

@@ -1,7 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
+import { NOTIFICATIONS } from "../../lib/constants";
+import { handleFormError } from "../../lib/errorHandling";
 import { useAuth, useAuthActions } from "../../stores/authStore";
 import type { RegisterRequest } from "../../types/auth";
 import { Button } from "../ui/button";
@@ -64,12 +67,12 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
     clearError();
   }, [clearError]);
 
-  // Clear auth errors when form values change
+  const watchedFields = form.watch();
   useEffect(() => {
     if (error) {
       clearError();
     }
-  }, [form.watch(), clearError, error]);
+  }, [watchedFields, clearError, error]);
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
@@ -77,15 +80,14 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
         email: data.email,
         password: data.password,
       };
-
       await register(registerData);
-
-      // If we get here, registration was successful
       onSuccess?.();
-    } catch (error: any) {
-      // Error is now handled in the auth store
-      // Just call the onError callback if provided
-      onError?.(error.message || "Registration failed");
+    } catch (error: unknown) {
+      const errorMessage = handleFormError(error, form.setError);
+      onError?.(errorMessage);
+      toast.error(errorMessage, {
+        duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+      });
     }
   };
 

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { urlsApi } from "../services/api/urls";
-import type { Url, UrlsQueryParams } from "../types/url";
+import type { AnalysisResult, Url, UrlsQueryParams } from "../types/url";
 
 interface UseUrlPollingOptions {
   enabled?: boolean;

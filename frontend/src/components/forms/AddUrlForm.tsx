@@ -1,8 +1,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Globe, Loader2, Plus, XCircle } from "lucide-react";
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
+import { NOTIFICATIONS } from "../../lib/constants";
+import { handleFormError } from "../../lib/errorHandling";
 import { urlsApi } from "../../services/api/urls";
 import type { CreateUrlRequest } from "../../types/url";
 import { Button } from "../ui/button";
@@ -76,31 +85,30 @@ export function AddUrlForm({
 
   const isLoading = externalLoading || isSubmitting;
 
-  const handleSubmit = async (data: UrlFormData) => {
-    setIsSubmitting(true);
-
-    try {
-      if (onSubmit) {
-        await onSubmit(data);
-      } else {
-        // Default submission logic
-        await urlsApi.createUrl(data);
+  const handleSubmit = useCallback(
+    async (data: UrlFormData) => {
+      setIsSubmitting(true);
+      try {
+        if (onSubmit) {
+          await onSubmit(data);
+        } else {
+          await urlsApi.createUrl(data);
+        }
+        form.reset();
+        setIsOpen(false);
+        onSuccess?.();
+      } catch (error: unknown) {
+        const errorMessage = handleFormError(error, form.setError);
+        form.setError("url", { type: "manual", message: errorMessage });
+        toast.error(errorMessage, {
+          duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+        });
+      } finally {
+        setIsSubmitting(false);
       }
-
-      // Reset form and close dialog on success
-      form.reset();
-      setIsOpen(false);
-      onSuccess?.();
-    } catch (error: any) {
-      // Set form error if submission fails
-      form.setError("url", {
-        type: "manual",
-        message: error.message || "Failed to add URL",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    },
+    [onSubmit, urlsApi, form, setIsOpen, onSuccess]
+  );
 
   const handleUrlBlur = async () => {
     const url = form.getValues("url");
@@ -251,43 +259,43 @@ export const QuickAddUrlForm = forwardRef<
 
   const isLoading = loading || isSubmitting;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (!url.trim()) {
-      setError("URL is required");
-      return;
-    }
-
-    // Auto-correct URL if needed
-    let correctedUrl = url.trim();
-    if (
-      !correctedUrl.startsWith("http://") &&
-      !correctedUrl.startsWith("https://")
-    ) {
-      correctedUrl = `https://${correctedUrl}`;
-    }
-
-    // Validate URL
-    const validation = urlsApi.validateUrl(correctedUrl);
-    if (!validation.isValid) {
-      setError(validation.error || "Invalid URL");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await onSubmit({ url: correctedUrl });
-      setUrl("");
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
       setError("");
-    } catch (error: any) {
-      setError(error.message || "Failed to add URL");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      if (!url.trim()) {
+        setError("URL is required");
+        return;
+      }
+      let correctedUrl = url.trim();
+      if (
+        !correctedUrl.startsWith("http://") &&
+        !correctedUrl.startsWith("https://")
+      ) {
+        correctedUrl = `https://${correctedUrl}`;
+      }
+      const validation = urlsApi.validateUrl(correctedUrl);
+      if (!validation.isValid) {
+        setError(validation.error || "Invalid URL");
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        await onSubmit({ url: correctedUrl });
+        setUrl("");
+        setError("");
+      } catch (error: unknown) {
+        const errorMessage = handleFormError(error);
+        setError(errorMessage);
+        toast.error(errorMessage, {
+          duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [onSubmit, url, urlsApi]
+  );
 
   return (
     <form onSubmit={handleSubmit} className={`space-y-3 ${className}`}>

@@ -10,7 +10,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ProcessingIndicator } from "../components/common";
@@ -31,6 +31,8 @@ import {
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import { useUrlResultPolling } from "../hooks/useUrlPolling";
+import { NOTIFICATIONS } from "../lib/constants";
+import { handleApiError } from "../lib/errorHandling";
 import { urlsApi } from "../services/api/urls";
 import type { AnalysisResult } from "../types/url";
 
@@ -124,47 +126,47 @@ export function UrlDetailPage() {
     }
   }, [urlInfoError]);
 
-  const handleStartAnalysis = async () => {
+  const handleStartAnalysis = useCallback(async () => {
     if (!analysis) return;
-
     try {
       setActionLoading({ ...actionLoading, analyze: true });
       await urlsApi.startAnalysis(analysis.id);
-      toast.success("Analysis started successfully");
-
-      // Force refresh polling
+      toast.success("Analysis started successfully", {
+        duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+      });
       setTimeout(() => {
         refetch();
-      }, 1000);
+      }, NOTIFICATIONS.DELAY.SHORT);
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to start analysis";
-      toast.error(errorMessage);
+      const errorMessage = handleApiError(err, "start analysis");
+      toast.error(errorMessage, {
+        duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+      });
     } finally {
       setActionLoading({ ...actionLoading, analyze: false });
     }
-  };
+  }, [analysis, actionLoading, refetch]);
 
-  const handleStopAnalysis = async () => {
+  const handleStopAnalysis = useCallback(async () => {
     if (!analysis) return;
-
     try {
       setActionLoading({ ...actionLoading, stop: true });
       await urlsApi.stopAnalysis(analysis.id);
-      toast.success("Analysis stopped successfully");
-
-      // Force refresh polling
+      toast.success("Analysis stopped successfully", {
+        duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+      });
       setTimeout(() => {
         refetch();
-      }, 1000);
+      }, NOTIFICATIONS.DELAY.SHORT);
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to stop analysis";
-      toast.error(errorMessage);
+      const errorMessage = handleApiError(err, "stop analysis");
+      toast.error(errorMessage, {
+        duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+      });
     } finally {
       setActionLoading({ ...actionLoading, stop: false });
     }
-  };
+  }, [analysis, actionLoading, refetch]);
 
   const handleDeleteUrl = async () => {
     if (!analysis) return;
@@ -172,23 +174,24 @@ export function UrlDetailPage() {
     setShowDeleteDialog(true);
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     if (!analysis) return;
-
     setShowDeleteDialog(false);
-
     try {
       setActionLoading({ ...actionLoading, delete: true });
       await urlsApi.deleteUrl(analysis.id);
-      toast.success("URL deleted successfully");
+      toast.success("URL deleted successfully", {
+        duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+      });
       navigate("/urls");
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to delete URL";
-      toast.error(errorMessage);
+      const errorMessage = handleApiError(err, "delete URL");
+      toast.error(errorMessage, {
+        duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
+      });
       setActionLoading({ ...actionLoading, delete: false });
     }
-  };
+  }, [analysis, actionLoading, navigate]);
 
   function hasErrorProp(obj: unknown): obj is { error: string } {
     return (

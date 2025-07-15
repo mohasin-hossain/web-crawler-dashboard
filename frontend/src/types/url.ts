@@ -102,7 +102,7 @@ export interface UrlActionResponse {
 }
 
 // Common API response wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data: T;
   success: boolean;
   message?: string;

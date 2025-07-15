@@ -16,7 +16,7 @@ import { Button } from "../ui/button";
 interface BulkActionsProps {
   selectedCount: number;
   selectedUrls: Url[];
-  onBulkDelete: () => Promise<void>;
+  onBulkDelete: (urlsToDelete: Url[]) => Promise<void>;
   onBulkAnalyze: () => Promise<void>;
   onBulkStop: () => Promise<void>;
   onBulkRerun: () => Promise<void>;
@@ -57,19 +57,25 @@ export function BulkActions({
 
   const processingCount = urlsByStatus["processing"] || 0;
   const completedCount = urlsByStatus["completed"] || 0;
+  const errorCount = urlsByStatus["error"] || 0;
+
+  // Determine deletable URLs (not processing)
+  const deletableUrls = selectedUrls.filter(
+    (url) => url.status !== "processing"
+  );
+  const deletableCount = deletableUrls.length;
 
   // Determine button states
   const canStartAnalysis = canAnalyzeCount > 0;
   const canStopAnalysis = processingCount > 0;
-  const canRerunAnalysis =
-    completedCount > 0 || (urlsByStatus["error"] || 0) > 0;
+  const canRerunAnalysis = completedCount > 0 || errorCount > 0;
 
   const handleBulkAction = async (action: BulkAction) => {
     setPendingAction(action);
     try {
       switch (action) {
         case "delete":
-          await onBulkDelete();
+          await onBulkDelete(deletableUrls);
           break;
         case "analyze":
           await onBulkAnalyze();
@@ -92,7 +98,10 @@ export function BulkActions({
 
   const handleConfirmDelete = async () => {
     setShowDeleteDialog(false);
-    await handleBulkAction("delete");
+    // Only delete deletable URLs (not processing)
+    if (deletableUrls.length > 0) {
+      await onBulkDelete(deletableUrls);
+    }
   };
 
   const isActionLoading = (action: BulkAction) => {
@@ -222,7 +231,8 @@ export function BulkActions({
               </Button>
             )}
 
-            {processingCount === 0 && (
+            {/* Show Delete if at least one deletable URL is selected */}
+            {deletableCount > 0 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -230,6 +240,11 @@ export function BulkActions({
                 disabled={loading || pendingAction !== null}
                 className="text-red-700 border-red-300 hover:bg-red-50 truncate min-w-0"
                 style={{ maxWidth: "100%" }}
+                title={
+                  processingCount > 0
+                    ? `Processing URLs cannot be deleted. Only ${deletableCount} can be deleted.`
+                    : undefined
+                }
               >
                 {isActionLoading("delete") ? (
                   <>
@@ -239,7 +254,12 @@ export function BulkActions({
                 ) : (
                   <>
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    Delete{" "}
+                    {deletableCount === 1
+                      ? `(${
+                          deletableUrls[0].status
+                        })`
+                      : `(${deletableCount} deletable)`}
                   </>
                 )}
               </Button>

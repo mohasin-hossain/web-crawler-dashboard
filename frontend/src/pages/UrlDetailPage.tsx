@@ -36,6 +36,10 @@ import { handleApiError } from "../lib/errorHandling";
 import { urlsApi } from "../services/api/urls";
 import type { AnalysisResult } from "../types/url";
 
+interface StatusObj {
+  status?: string;
+}
+
 export function UrlDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -59,8 +63,8 @@ export function UrlDetailPage() {
     queryKey: ["urlInfo", urlId],
     queryFn: () => urlsApi.getUrl(urlId),
     enabled: !!urlId,
-    refetchInterval: (data) => {
-      const status = (data as any)?.status?.toLowerCase?.();
+    refetchInterval: (d: unknown) => {
+      const status = (d as StatusObj)?.status?.toLowerCase?.();
       return status === "processing" || status === "queued" ? 2000 : false;
     },
     staleTime: 1000,
@@ -87,7 +91,6 @@ export function UrlDetailPage() {
   ).toLowerCase();
   const isQueued = combinedStatus === "queued";
   const isProcessing = combinedStatus === "processing";
-  const isPending = combinedStatus === "pending";
   const isErrorStatus = combinedStatus === "error";
 
   // Ensure we keep trying to fetch analysis result while the crawl is processing or queued
@@ -136,7 +139,7 @@ export function UrlDetailPage() {
       });
       setTimeout(() => {
         refetch();
-      }, NOTIFICATIONS.DELAY.SHORT);
+      }, NOTIFICATIONS.TOAST_DURATION.SHORT);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, "start analysis");
       toast.error(errorMessage, {
@@ -157,7 +160,7 @@ export function UrlDetailPage() {
       });
       setTimeout(() => {
         refetch();
-      }, NOTIFICATIONS.DELAY.SHORT);
+      }, NOTIFICATIONS.TOAST_DURATION.SHORT);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, "stop analysis");
       toast.error(errorMessage, {
@@ -198,7 +201,7 @@ export function UrlDetailPage() {
       typeof obj === "object" &&
       obj !== null &&
       "error" in obj &&
-      typeof (obj as any).error === "string"
+      typeof (obj as { error?: unknown }).error === "string"
     );
   }
 

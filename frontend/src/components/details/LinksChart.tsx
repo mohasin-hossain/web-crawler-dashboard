@@ -25,23 +25,6 @@ export function LinksChart({ analysis }: LinksChartProps) {
 
   const COLOR_INTERNAL = UI.COLORS.CHART.INTERNAL;
   const COLOR_EXTERNAL = UI.COLORS.CHART.EXTERNAL;
-  const INSIGHT_COLORS = {
-    info: {
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
-    },
-    warning: {
-      color: "text-yellow-600",
-      bgColor: "bg-yellow-50",
-      borderColor: "border-yellow-200",
-    },
-    success: {
-      color: "text-green-600",
-      bgColor: "bg-green-50",
-      borderColor: "border-green-200",
-    },
-  };
 
   const linksData = [
     {
@@ -67,6 +50,7 @@ export function LinksChart({ analysis }: LinksChartProps) {
   });
 
   // Fix: Use correct destructuring for recharts TooltipProps
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CustomTooltip = (props: any) => {
     if (props.active && props.payload && props.payload.length) {
       const data = props.payload[0].payload as {
@@ -86,6 +70,7 @@ export function LinksChart({ analysis }: LinksChartProps) {
     return null;
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CustomPieTooltip = (props: any) => {
     if (props.active && props.payload && props.payload.length) {
       const data = props.payload[0].payload as {
@@ -258,8 +243,10 @@ export function LinksChart({ analysis }: LinksChartProps) {
                     formatter={(value: string, entry: LegendPayload) => (
                       <span style={{ color: entry.color || undefined }}>
                         {value}:{" "}
-                        {entry.payload && (entry.payload as any).count
-                          ? (entry.payload as any).count
+                        {entry.payload &&
+                        (entry.payload as unknown as { count: number }).count
+                          ? (entry.payload as unknown as { count: number })
+                              .count
                           : 0}
                       </span>
                     )}

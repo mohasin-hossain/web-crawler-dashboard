@@ -98,7 +98,7 @@ export function AddUrlForm({
         setIsOpen(false);
         onSuccess?.();
       } catch (error: unknown) {
-        const errorMessage = handleFormError(error, form.setError);
+        const errorMessage = handleFormError(error, form.setError as unknown as (field: string, message: string) => void);
         form.setError("url", { type: "manual", message: errorMessage });
         toast.error(errorMessage, {
           duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,
@@ -320,7 +320,6 @@ export const QuickAddUrlForm = forwardRef<
           size="lg"
           onSuccess={() => {
             // Optional: Add any success feedback here
-            console.log("URL added successfully!");
           }}
           successDuration={800}
         >
@@ -373,7 +372,6 @@ export const QuickAddUrlForm = forwardRef<
           size="lg"
           onSuccess={() => {
             // Optional: Add any success feedback here
-            console.log("URL added successfully!");
           }}
           successDuration={800}
         >

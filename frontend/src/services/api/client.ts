@@ -53,12 +53,6 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    console.log(
-      "API Client: Error interceptor triggered",
-      error.response?.status,
-      error.response?.data
-    );
-
     const originalRequest = error.config as ExtendedAxiosRequestConfig;
 
     // Handle 401 Unauthorized responses
@@ -69,7 +63,6 @@ apiClient.interceptors.response.use(
       !originalRequest.url?.includes("/auth/login") &&
       !originalRequest.url?.includes("/auth/register")
     ) {
-      console.log("API Client: Handling 401 error for protected endpoint");
       // If we're already refreshing, queue this request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -119,17 +112,8 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // For authentication endpoints (login/register), just pass through the error
-    if (
-      originalRequest.url?.includes("/auth/login") ||
-      originalRequest.url?.includes("/auth/register")
-    ) {
-      console.log("API Client: Authentication endpoint error, passing through");
-    }
-
     // Handle specific error responses with user-friendly messages
     if (error.response?.data) {
-      console.log("API Client: Processing error response data");
       const errorData = error.response.data as {
         message?: string;
         error?: string;
@@ -146,13 +130,11 @@ apiClient.interceptors.response.use(
       (enhancedError as Error & { response: unknown; config: unknown }).config =
         error.config;
 
-      console.log("API Client: Enhanced error created:", enhancedError.message);
       return Promise.reject(enhancedError);
     }
 
     // Handle network and timeout errors
     if (error.code === "ECONNABORTED") {
-      console.log("API Client: Timeout error");
       const timeoutError = new Error(
         "Request timeout - please check your connection and try again"
       );
@@ -161,7 +143,6 @@ apiClient.interceptors.response.use(
     }
 
     if (!error.response) {
-      console.log("API Client: Network error");
       const networkError = new Error(
         "Network error - please check your connection and try again"
       );
@@ -202,7 +183,6 @@ apiClient.interceptors.response.use(
         errorMessage = `Server error (${statusCode}) - please try again`;
     }
 
-    console.log("API Client: HTTP error:", statusCode, errorMessage);
     const httpError = new Error(errorMessage);
     httpError.name = "HttpError";
     (httpError as Error & { response: unknown; config: unknown }).response =

@@ -60,6 +60,19 @@ export const useUrlDataStore = create<UrlDataStore>()(
             urls: Array.isArray(response.urls) ? response.urls : [],
           });
 
+          // Set pagination in the UI store
+          if (typeof window !== "undefined") {
+            // Dynamically import the UI store to avoid circular dependency
+            import("./urlUIActions").then(({ useUrlUIStore }) => {
+              useUrlUIStore.getState().setPagination({
+                page: response.page,
+                limit: response.limit,
+                total: response.total,
+                totalPages: response.total_pages,
+              });
+            });
+          }
+
           // Calculate stats after fetching URLs
           get().calculateStats();
         } catch (error: unknown) {

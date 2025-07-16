@@ -207,8 +207,6 @@ export function logError(
     console.error("Application Error:", logData);
   } else if (errorType === "validation" || errorType === "authentication") {
     console.warn("User Error:", logData);
-  } else {
-    console.log("Info Error:", logData);
   }
 }
 

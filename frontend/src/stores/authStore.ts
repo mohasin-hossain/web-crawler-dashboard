@@ -33,11 +33,9 @@ export const useAuthStore = create<AuthStore>()(
       // Actions
       login: async (data: LoginRequest) => {
         try {
-          console.log("Auth store: Starting login");
           set({ isSubmitting: true, error: null });
 
           const response = await authApi.login(data);
-          console.log("Auth store: Login API call successful");
 
           // Update state with new auth data
           set({
@@ -48,9 +46,7 @@ export const useAuthStore = create<AuthStore>()(
             error: null,
             isInitialized: true,
           });
-          console.log("Auth store: Login state updated successfully");
         } catch (error: unknown) {
-          console.error("Auth store: Login error caught:", error);
           let errorMessage = "Login failed";
 
           // Handle specific error responses from backend
@@ -83,10 +79,6 @@ export const useAuthStore = create<AuthStore>()(
             errorMessage = "Request timeout. Please try again.";
           }
 
-          console.log(
-            "Auth store: Setting error state with message:",
-            errorMessage
-          );
           set({
             user: null,
             token: null,
@@ -94,7 +86,6 @@ export const useAuthStore = create<AuthStore>()(
             isSubmitting: false,
             error: errorMessage,
           });
-          console.log("Auth store: Error state set, throwing error");
           throw error;
         }
       },
@@ -207,7 +198,6 @@ export const useAuthStore = create<AuthStore>()(
             });
           }
         } catch (error) {
-          console.error("Error checking auth:", error);
           set({
             user: null,
             token: null,
@@ -265,7 +255,6 @@ export const useAuth = () => {
     isAuthenticated,
     isLoading,
     isSubmitting,
-    error,
     isInitialized,
   } = useAuthStore();
   return {
@@ -273,7 +262,6 @@ export const useAuth = () => {
     isAuthenticated,
     isLoading,
     isSubmitting,
-    error,
     isInitialized,
   };
 };

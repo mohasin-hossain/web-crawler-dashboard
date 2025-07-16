@@ -69,7 +69,10 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
       await login(loginData);
       onSuccess?.();
     } catch (error: unknown) {
-      const errorMessage = handleFormError(error, form.setError);
+      const errorMessage = handleFormError(
+        error,
+        form.setError as unknown as (field: string, message: string) => void
+      );
       onError?.(errorMessage);
       toast.error(errorMessage, {
         duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,

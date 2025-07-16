@@ -82,12 +82,10 @@ export const authApi = {
 
   login: async (data: LoginRequest): Promise<AuthResponse> => {
     try {
-      console.log("Auth API: Making login request");
       const response = await apiClient.post<ApiResponse<AuthResponse>>(
         "/api/auth/login",
         data
       );
-      console.log("Auth API: Login response received", response.data);
 
       // Store token and user data
       if (response.data.data.token) {

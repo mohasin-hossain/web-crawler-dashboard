@@ -60,12 +60,12 @@ export class ErrorBoundary extends Component<Props, State> {
             </h2>
 
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {ERROR_MESSAGES.GENERIC.UNKNOWN_DESCRIPTION}
+              {"Something went wrong. Please try again."}
             </p>
 
             <div className="space-y-2">
               <Button onClick={this.handleReset} className="w-full">
-                {ERROR_MESSAGES.GENERIC.TRY_AGAIN}
+                {"Try Again"}
               </Button>
 
               <Button
@@ -73,14 +73,14 @@ export class ErrorBoundary extends Component<Props, State> {
                 onClick={() => window.location.reload()}
                 className="w-full"
               >
-                {ERROR_MESSAGES.GENERIC.REFRESH_PAGE}
+                {"Refresh Page"}
               </Button>
             </div>
 
             {process.env.NODE_ENV === "development" && this.state.error && (
               <details className="mt-4 text-left">
                 <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-                  {ERROR_MESSAGES.GENERIC.ERROR_DETAILS}
+                  {"Error Details"}
                 </summary>
                 <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs overflow-auto">
                   <p className="font-mono text-red-600 dark:text-red-400">

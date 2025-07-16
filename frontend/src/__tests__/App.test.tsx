@@ -9,3 +9,4 @@ describe("App", () => {
     expect(screen.getAllByText(/sign in|crawldash/i).length).toBeGreaterThan(0);
   });
 });
+ 

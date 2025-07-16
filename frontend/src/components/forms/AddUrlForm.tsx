@@ -98,7 +98,10 @@ export function AddUrlForm({
         setIsOpen(false);
         onSuccess?.();
       } catch (error: unknown) {
-        const errorMessage = handleFormError(error, form.setError as unknown as (field: string, message: string) => void);
+        const errorMessage = handleFormError(
+          error,
+          form.setError as unknown as (field: string, message: string) => void
+        );
         form.setError("url", { type: "manual", message: errorMessage });
         toast.error(errorMessage, {
           duration: NOTIFICATIONS.TOAST_DURATION.NORMAL,

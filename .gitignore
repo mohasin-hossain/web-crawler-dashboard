@@ -92,3 +92,6 @@ out/
 # Temporary files
 tmp/
 temp/ 
+# Ignore Go backend binaries and bin directory
+backend/server
+backend/bin/ 

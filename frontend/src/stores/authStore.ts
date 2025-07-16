@@ -250,13 +250,8 @@ export const useAuthStore = create<AuthStore>()(
 
 // Helper hooks for easier usage
 export const useAuth = () => {
-  const {
-    user,
-    isAuthenticated,
-    isLoading,
-    isSubmitting,
-    isInitialized,
-  } = useAuthStore();
+  const { user, isAuthenticated, isLoading, isSubmitting, isInitialized } =
+    useAuthStore();
   return {
     user,
     isAuthenticated,

@@ -1,14 +1,77 @@
-# 🕷️ Web Crawler Dashboard
+# Web Crawler Dashboard
 
 A professional full-stack web application that crawls websites and analyzes their structure, providing comprehensive insights through an interactive dashboard. Built with modern technologies and best practices for production-ready web crawling and analysis.
 
-![Dashboard Demo](docs/demo.gif)
+![Dashboard Demo](assets/demo.gif)
 
 ![Dashboard Preview](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Go Version](https://img.shields.io/badge/Go-1.24.4+-blue)
 ![React Version](https://img.shields.io/badge/React-19.1.0+-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Docker & Docker Compose** (recommended)
+- **Node.js 18+** (for local development)
+- **Go 1.24+** (for local development)
+- **MySQL 8.0** (for local development)
+
+### 1. Clone the Repository
+
+```bash
+git clone <your-repo-url>
+cd web-crawler-dashboard
+```
+
+### 2. Environment Setup
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env file with your configuration
+# Generate secure passwords and JWT secret
+```
+
+**Required Environment Variables:**
+
+```bash
+# Database Configuration
+DB_ROOT_PASSWORD=your_secure_root_password
+DB_USER=webuser
+DB_PASSWORD=your_secure_user_password
+DB_NAME=webcrawler
+
+# JWT Configuration
+JWT_SECRET=your_32_character_jwt_secret
+
+# Optional Configuration
+PORT=8080
+GIN_MODE=debug
+VITE_API_URL=http://localhost:8080
+```
+
+### 3. Start with Docker (Recommended)
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### 4. Access the Application
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8080
+- **Database**: localhost:3306
 
 ## ✨ Features
 
@@ -110,69 +173,6 @@ web-crawler-dashboard/
 │   └── scripts/              # Database initialization
 └── docker-compose.yml         # Multi-container orchestration
 ```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Docker & Docker Compose** (recommended)
-- **Node.js 18+** (for local development)
-- **Go 1.24+** (for local development)
-- **MySQL 8.0** (for local development)
-
-### 1. Clone the Repository
-
-```bash
-git clone <your-repo-url>
-cd web-crawler-dashboard
-```
-
-### 2. Environment Setup
-
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env file with your configuration
-# Generate secure passwords and JWT secret
-```
-
-**Required Environment Variables:**
-
-```bash
-# Database Configuration
-DB_ROOT_PASSWORD=your_secure_root_password
-DB_USER=webuser
-DB_PASSWORD=your_secure_user_password
-DB_NAME=webcrawler
-
-# JWT Configuration
-JWT_SECRET=your_32_character_jwt_secret
-
-# Optional Configuration
-PORT=8080
-GIN_MODE=debug
-VITE_API_URL=http://localhost:8080
-```
-
-### 3. Start with Docker (Recommended)
-
-```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-### 4. Access the Application
-
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8080
-- **Database**: localhost:3306
 
 ## 🛠 Development Setup
 
@@ -327,19 +327,19 @@ GET /api/health
 
 ## 🧪 Testing
 
-### Frontend Tests
+### Frontend Tests (Automated)
+
+Automated frontend tests are implemented using [Vitest](https://vitest.dev/) and [@testing-library/react](https://testing-library.com/docs/react-testing-library/intro/). These tests cover a few happy-path scenarios:
+
+- Rendering the main App and verifying the login or dashboard heading is present
+- Rendering the URL table and verifying URLs and the table are displayed
+- Rendering the Add URL form and verifying a user can type a URL
+
+To run all frontend tests:
 
 ```bash
 cd frontend
-
-# Run unit tests
-npm run test
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run E2E tests
-npm run test:e2e
+npx vitest run
 ```
 
 ### Backend Tests

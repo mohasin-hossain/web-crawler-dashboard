@@ -1,14 +1,14 @@
 # Web Crawler Dashboard
 
-A professional full-stack web application that crawls websites and analyzes their structure, providing comprehensive insights through an interactive dashboard. Built with modern technologies and best practices for production-ready web crawling and analysis.
-
-![Dashboard Demo](assets/demo.gif)
-
 ![Dashboard Preview](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Go Version](https://img.shields.io/badge/Go-1.24.4+-blue)
 ![React Version](https://img.shields.io/badge/React-19.1.0+-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
+
+A professional full-stack web application that crawls websites and analyzes their structure, providing comprehensive insights through an interactive dashboard. Built with modern technologies and best practices for production-ready web crawling and analysis.
+
+![Dashboard Demo](assets/demo.gif)
 
 ## 🚀 Quick Start
 
@@ -357,16 +357,6 @@ go test -cover ./...
 go test ./internal/crawler/
 ```
 
-### Integration Tests
-
-```bash
-# Start test environment
-docker-compose -f docker-compose.test.yml up -d
-
-# Run integration tests
-npm run test:integration
-```
-
 ## 🔧 Configuration
 
 ### Environment Variables
@@ -399,3 +389,9 @@ broken_links       # Detailed broken link information
 5. **Open** a Pull Request
 
 **Built with ❤️ using modern web technologies**
+
+---
+
+## Author
+
+[Md Mohasin Hossain](https://www.linkedin.com/in/themohasinhossain/)

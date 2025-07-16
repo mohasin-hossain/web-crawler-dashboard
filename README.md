@@ -71,6 +71,7 @@ docker-compose down
 
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:8080
+- **Check If Backend API Running**: http://localhost:8080/api/health
 - **Database**: localhost:3306
 
 ## ✨ Features
